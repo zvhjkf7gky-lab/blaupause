@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Global Logistics Tycoon</title>
+<title>Globaler Logistik-Tycoon</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="theme-color" content="#0a1424">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Logistics Tycoon">
+<meta name="apple-mobile-web-app-title" content="Logistik-Tycoon">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
@@ -26,15 +26,15 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family
 button{font:inherit;color:inherit}
 #app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
 .hud{flex:none;padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-bottom:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:linear-gradient(180deg,#0d1b31,#0b1729);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;z-index:5}
-.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand{display:flex;align-items:center;gap:10px;min-width:0;flex:1 1 auto}
 .lvl{position:relative;width:44px;height:44px;flex:none}
 .lvl svg{position:absolute;inset:0}
 .lvl b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-disp);font-size:19px;font-weight:800}
-.co{min-width:0}
+.co{min-width:0;overflow:hidden}
 .co .nm{font-family:var(--f-disp);font-weight:700;font-size:17px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
-.co .st{font-size:12px;color:var(--mute);white-space:nowrap}
-.hud .sp{flex:1}
-.cash{text-align:right}
+.co .st{font-size:12px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud .sp{display:none}
+.cash{text-align:right;flex:none;max-width:62vw}
 .cash .m{font-family:var(--f-disp);font-weight:800;font-size:24px;letter-spacing:.01em;font-variant-numeric:tabular-nums;line-height:1}
 .cash .d{font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap}
 .pos{color:var(--good)} .neg{color:var(--bad)}
@@ -145,7 +145,7 @@ input[type=text]{width:100%;background:#0b1830;color:var(--ink);border:1px solid
 @keyframes fade{from{opacity:0}}
 @keyframes up{from{transform:translateY(40px);opacity:0}}
 @keyframes tin{from{transform:translateY(-8px);opacity:0}}
-@keyframes flt{to{transform:translateY(-60px);opacity:0}}
+@keyframes flt{to{transform:translateY(-38px);opacity:0}}
 @keyframes flash{0%{box-shadow:0 0 0 0 rgba(255,122,26,.8)}100%{box-shadow:0 0 0 14px rgba(255,122,26,0)}}
 .stage-banner{border-radius:16px;padding:14px;background:radial-gradient(120% 140% at 0% 0%,#24477c,#112038);border:1px solid #2d4f86}
 .steps{display:flex;gap:4px;margin-top:10px}
@@ -185,7 +185,7 @@ table.t td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 <script>
 'use strict';
 /* =====================================================================
-   GLOBAL LOGISTICS TYCOON
+   GLOBALER LOGISTIK-TYCOON
    Sections: helpers · data · state · economy · simulation · events ·
              missions · scene renderer · map renderer · UI · input · boot
    ===================================================================== */
@@ -371,7 +371,7 @@ function initComps() { return [{ n: 'Nordwind Cargo', v: 2e6, g: .012 }, { n: 'A
 
 function newGame(keep) {
   S = {
-    v: 1, name: keep ? keep.name : 'Elbe Logistik', money: 2500, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
+    v: 1, name: keep ? keep.name : 'Elbe Logistik', money: 5000, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
     stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0 },
     markets: { hh: 1 }, branches: { hh: 1 },
     warehouses: [{ id: 'w1', city: 'hh', name: 'Zentrallager Hamburg', m: { size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, inv: 0 }],
@@ -382,6 +382,7 @@ function newGame(keep) {
     contracts: { offers: [], active: [], refresh: 0 },
     fin: { today: ledger(), hist: [] }, loan: 0, fuel: 1, fx: [],
     ev: { next: 140, cur: null }, missions: {}, ach: keep ? keep.ach : {}, comps: initComps(),
+    auto: keep && keep.auto ? keep.auto : { accept: 1, dispatch: 1, care: 1, events: 1, research: 1, build: 1 }, speed: keep && keep.speed ? keep.speed : 3, apT: 0,
     prestige: keep ? keep.prestige : { shares: 0, count: 0 }, tut: keep ? 9 : 0, nid: 10, lastSave: Date.now(), lastStage: 1,
   };
   for (let i = 0; i < 3; i++) S.board.push(genOrder());
@@ -391,8 +392,8 @@ const nid = p => p + (S.nid++);
 /* ---------- derived values ---------- */
 const has = r => !!S.research.done[r];
 function stage() { let s = 1; for (let i = 2; i <= 5; i++) { const d = STAGES[i]; if (S.level >= d.lvl && (!d.research || has(d.research))) s = i; else break; } return s; }
-function levelBonus(l) { return Math.round(250 * Math.pow(1.6, l - 2) / 10) * 10; }
-function xpNeed(l) { return Math.round(120 * Math.pow(1.5, l - 1)); }
+function levelBonus(l) { return Math.round(500 * Math.pow(1.65, l - 2) / 10) * 10; }
+function xpNeed(l) { return Math.round(70 * Math.pow(1.42, l - 1)); }
 function fx(k) { let m = 1; for (const f of S.fx) if (f.k === k) m *= f.m; return m; }
 function prestigeMult() { return 1 + S.prestige.shares * 0.02; }
 function whCap(w) { const m = w.m; return Math.round((40 + m.shelves * 22) * (1 + (m.size - 1) * 0.65) * (m.mega ? 3 : 1)); }
@@ -470,7 +471,7 @@ function earn(a) { S.money += a; S.fin.today.rev += a; S.stats.rev += a; }
 function tryBuy(cost, what) { if (S.money < cost) { toast(`Zu wenig Geld für ${what}. Es fehlen ${money(cost - S.money)}.`, 'r'); return false; } spend(cost); return true; }
 function addXp(x) {
   S.xp += x;
-  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g'); }
+  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g', true); }
   const st = stage();
   if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; }
 }
@@ -598,11 +599,12 @@ function step(dt) {
   if (rep > 0) for (const v of S.vehicles.filter(v => v.state === 'idle' && v.cond < 100).sort((a, b) => a.cond - b.cond)) { const n = Math.min(100 - v.cond, rep); v.cond += n; rep -= n; if (rep <= 0) break; }
   // research
   const rc = S.research.cur;
-  if (rc) { rc.t += dt * researchSpeed(); if (rc.t >= RS[rc.id].time) { S.research.done[rc.id] = 1; S.research.cur = null; S.stats.researched++; toast(`Forschung abgeschlossen: ${RS[rc.id].n}`, 'g'); addXp(RS[rc.id].cost / 40); } }
+  if (rc) { rc.t += dt * researchSpeed() * 2; if (rc.t >= RS[rc.id].time) { S.research.done[rc.id] = 1; S.research.cur = null; S.stats.researched++; toast(`Forschung abgeschlossen: ${RS[rc.id].n}`, 'g'); addXp(RS[rc.id].cost / 40); } }
   // staff experience
   for (const e of S.staff) if (!e.founder || e.lvl < 5) e.xp = Math.min(staffNeed(e), e.xp + dt);
   // events
   if (!S.ev.cur) { S.ev.next -= dt; if (S.ev.next <= 0) { triggerEvent(); S.ev.next = rnd(120, 210); } }
+  S.apT += dt; if (S.apT >= 1) { S.apT -= 1; autopilot(); }
   if (S.dayT >= DAY) endDay();
 }
 function deliver(tr) {
@@ -944,6 +946,7 @@ function triggerEvent() {
   if (!ids.length) return;
   const id = pick(ids);
   S.ev.cur = { id, p: EVENTS[id].make() };
+  if (S.auto && S.auto.events) { autoEvent(); return; }
   if (!U.modal) U.modal = { type: 'event' };
 }
 function resolveEvent(i) {
@@ -1021,9 +1024,117 @@ function canPrestige() { return stage() >= 5 || valuation() >= 5e7; }
 function doPrestige() {
   if (!canPrestige()) return;
   const add = prestigeShares();
-  const keep = { name: S.name, ach: S.ach, prestige: { shares: S.prestige.shares + add, count: S.prestige.count + 1 } };
+  const keep = { name: S.name, ach: S.ach, auto: S.auto, speed: S.speed, prestige: { shares: S.prestige.shares + add, count: S.prestige.count + 1 } };
   newGame(keep); U.modal = null; U.tab = 'hq'; save();
   toast(`Börsengang erfolgreich! ${add} Aktienpunkte: dauerhaft +${add * 2} % auf Erlöse und Tempo.`, 'g');
+}
+
+
+/* ---------- autopilot ---------- */
+const AP_KEYS = [['accept', 'Aufträge annehmen'], ['dispatch', 'Versenden'], ['care', 'Reparatur & Fahrer'], ['events', 'Ereignisse & Belohnungen'], ['research', 'Forschung'], ['build', 'Ausbau & Einkauf']];
+function apReserve() { const h = S.fin.hist[S.fin.hist.length - 1]; return Math.max(400, h ? h.exp * .8 : 300); }
+function apCan(c) { return S.money - c >= apReserve(); }
+function apTypeOk(t) { const d = VT[t]; return stage() >= d.st && (!d.req || has(d.req)) && (!d.mod || S.vehicles.filter(v => v.type === t).length < typeLimit(t)) && (d.nopark || parkUsed() < parkSlots()); }
+function apCheapest(o) { return Object.keys(VT).filter(t => apTypeOk(t) && canServe({ type: t, up: { spd: 0, cap: 0 } }, o)).sort((a, b) => VT[a].price - VT[b].price)[0]; }
+function apHire(role, extraDays) { const c = candidates(role)[0]; if (!c) { if (S.money > 5000) S.cand[role] = null; return false; } if (!apCan(hireFee(c) + c.salary * extraDays)) return false; hire(c.id, role); return true; }
+function apUpgrade(wi, k, mult = 1) { const w = S.warehouses[wi]; if (!w || w.m[k] >= MODS[k].max || modLocked(k, w)) return false; if (!apCan(modCost(k, w) * mult)) return false; upgradeMod(wi, k); return true; }
+function autoEvent() {
+  const c = S.ev.cur; if (!c) return;
+  const ch = EVENTS[c.id].choices(c.p);
+  let best = 0;
+  // prefer paid options only when clearly affordable, accept missions when storage allows
+  const costly = i => /Kostet/.test(ch[i].s);
+  if (c.id === 'bigorder' || c.id === 'gov') best = c.p.o && canStore(c.p.o.pk) && S.vehicles.some(v => canServe(v, c.p.o)) ? 0 : 1;
+  else if (c.id === 'pricewar') best = apCan(c.p.cost * 3) ? 1 : 0;
+  else { best = ch.findIndex((x, i) => costly(i)); if (best < 0 || !apCan((c.p.cost || 0) * 3)) best = ch.findIndex((x, i) => !costly(i)); if (best < 0) best = 0; }
+  toast(`Ereignis „${EVENTS[c.id].title}“ – Autopilot: ${ch[best].t}`, 'y', true);
+  resolveEvent(best);
+}
+function autopilot() {
+  U.quiet = true;
+  try { autopilotRun(); } finally { U.quiet = false; }
+}
+function autopilotRun() {
+  const A = S.auto; if (!A) return;
+  if (A.events) {
+    if (S.ev.cur) { autoEvent(); }
+    ensureMissions();
+    for (const k of ['daily', 'weekly']) (S.missions[k] || []).forEach((m, i) => { if (!m.claimed && mProg(m) >= m.n) claimMission(k, i); });
+    for (const a of ACH) if (!S.ach[a.id] && a.v() >= a.g) claimAch(a.id);
+  }
+  if (A.accept) {
+    let q = S.orders.filter(o => o.state === 'sort').reduce((a, o) => a + o.sortLeft, 0);
+    const sr = sortRate();
+    for (const o of S.board.slice().sort((a, b) => b.pay / b.pk - a.pay / a.pk)) {
+      if (!canStore(o.pk) || !S.vehicles.some(v => canServe(v, o))) continue;
+      if ((q + o.pk) / sr < o.win * .45 && stored() + o.pk <= capacity() * .9) { if (acceptOrder(o.id, true)) q += o.pk; }
+    }
+    if (S.contracts.active.length < contractLimit()) {
+      const k = S.contracts.offers.find(k => S.rep >= k.minRep && capacity() - stored() > k.per * 2 && S.vehicles.some(v => canServe(v, { tier: k.tier, cold: k.cold, city: k.city })));
+      if (k) acceptContract(k.id);
+    }
+  }
+  if (A.dispatch) {
+    for (const o of S.orders.slice().sort((a, b) => a.deadline - b.deadline)) if (o.state === 'ready') { let n = 0; while (o.left > 0 && n++ < 20 && dispatch(o, null, true)); }
+    for (const o of S.orders.slice()) if (o.late && o.left === o.pk && o.state === 'ready' && !S.vehicles.some(v => canServe(v, o))) cancelOrder(o.id);
+  }
+  if (A.care) {
+    for (const v of S.vehicles) if (v.state === 'idle' && v.cond < 40 && apCan(repairCost(v))) repair(v.id);
+    for (const v of S.vehicles) if (needsDriver(v) && !driverOf(v)) { const d = freeDrivers()[0]; if (d) v.driver = d.id; else apHire('driver', 2); }
+  }
+  if (A.research && !S.research.cur) {
+    const r = RESEARCH.filter(r => researchState(r) === 'open').sort((a, b) => (a.id === 'customs' ? -1 : 0) - (b.id === 'customs' ? -1 : 0) || a.cost - b.cost)[0];
+    if (r && apCan(r.cost * 1.3)) startResearch(r.id);
+  }
+  if (A.build) autoBuild();
+  if (S.money < 0 && S.loan < maxLoan()) takeLoan(Math.max(2000, Math.round(-S.money * 1.5)));
+  if (S.loan > 0 && S.money > S.loan * 2 + apReserve()) repay(S.loan);
+}
+function autoBuild() {
+  const sr = sortRate();
+  const sortQ = S.orders.filter(o => o.state === 'sort').reduce((a, o) => a + o.sortLeft, 0);
+  // 1) vehicles: waiting ready orders without a free vehicle, or board orders nobody can serve
+  const waiting = S.orders.filter(o => o.state === 'ready' && o.left > 0).sort((a, b) => a.deadline - b.deadline);
+  const stuck = waiting.find(o => !bestVehicle(o)) || S.board.find(o => !S.vehicles.some(v => canServe(v, o)));
+  if (stuck) {
+    const t = apCheapest(stuck);
+    if (t && apCan(VT[t].price)) { buyVehicle(t); return; }
+    if (!t && parkUsed() >= parkSlots()) { for (let i = 0; i < S.warehouses.length; i++) if (apUpgrade(i, 'park')) return; }
+  }
+  // 2) sorting bottleneck
+  if (sortQ / sr > 12) {
+    if (staffOf('worker').length < workerSlots()) { if (apHire('worker', 4)) return; }
+    else { for (const k of ['conv', 'sorter', 'robot', 'size']) if (apUpgrade(0, k)) return; }
+  }
+  // 3) storage
+  if (stored() > capacity() * .7 || S.board.some(o => !canStore(o.pk))) { for (const k of ['shelves', 'size']) for (let i = 0; i < S.warehouses.length; i++) if (apUpgrade(i, k)) return; }
+  if (S.trips.some(t => t.phase === 'queue')) { for (let i = 0; i < S.warehouses.length; i++) if (apUpgrade(i, 'docks')) return; }
+  if (parkUsed() >= parkSlots() - 1) { if (apUpgrade(0, 'park', 1.5)) return; }
+  // 4) terminals for new transport modes
+  for (const k of ['rail', 'air', 'port']) { const wi = S.warehouses.findIndex(w => !modLocked(k, w)); if (wi >= 0 && !modSum(k) && apUpgrade(wi, k, 1.2)) return; }
+  if (S.warehouses[0].m.robot === 0 && has('robotics') && apUpgrade(0, 'robot', 2)) return;
+  if (has('megahub') && !S.warehouses[0].m.mega && apUpgrade(0, 'mega', 1.5)) return;
+  // 5) automation staff
+  if (S.vehicles.length >= 3 && staffOf('dispatcher').length < Math.ceil(S.vehicles.length / 10) && apHire('dispatcher', 10)) return;
+  if (stage() >= 2 && staffOf('mechanic').length < Math.floor(S.vehicles.length / 8) && apHire('mechanic', 10)) return;
+  if (stage() >= 2 && staffOf('manager').length < 1 + Math.floor(stage() / 3) && apHire('manager', 12)) return;
+  if (stage() >= 3 && staffOf('specialist').length < stage() - 1 && apHire('specialist', 15)) return;
+  // 6) expansion: new markets, then branches
+  const open = CITIES.filter(c => !S.markets[c.id] && !cityLock(c.id)).sort((a, b) => MARKET_COST[a.st] - MARKET_COST[b.st])[0];
+  if (open && apCan(MARKET_COST[open.st] * 2)) { openMarket(open.id); return; }
+  const br = CITIES.filter(c => S.markets[c.id] && !S.branches[c.id] && !cityLock(c.id)).sort((a, b) => BRANCH_COST[a.st] - BRANCH_COST[b.st])[0];
+  if (br && apCan(BRANCH_COST[br.st] * 4)) { buildBranch(br.id); return; }
+  // 7) spare money: make the fleet better
+  const old = S.vehicles.filter(v => v.state === 'idle' && v.up.cap < 3).sort((a, b) => vUpCost(a, 'cap') - vUpCost(b, 'cap'))[0];
+  if (old && apCan(vUpCost(old, 'cap') * 6)) upgradeVehicle(old.id, 'cap');
+}
+function autoPanel() {
+  const all = AP_KEYS.every(([k]) => S.auto[k]);
+  return `<section class="card" data-key="autopanel">
+    <div class="row sb"><div class="row"><div class="ico">${ic('bolt')}</div><div><div class="ttl">Autopilot ${all ? '<span class="chip g">läuft</span>' : AP_KEYS.some(([k]) => S.auto[k]) ? '<span class="chip y">teilweise</span>' : '<span class="chip">aus</span>'}</div><div class="sub">Deine Firma arbeitet von selbst. Tippe einen Bereich an, um ihn selbst zu steuern.</div></div></div>${btn(all ? 'Alles aus' : 'Alles an', 'auto', 'all', all ? 's sm' : 'sm')}</div>
+    <div class="chips">${AP_KEYS.map(([k, n]) => `<button class="chip ${S.auto[k] ? 'g' : ''}" style="border:0;cursor:pointer;min-height:30px" data-act="auto" data-a="${k}">${S.auto[k] ? ic('check') : ic('x')}${n}</button>`).join('')}</div>
+    <div class="row sb"><span class="sub">Spieltempo</span><div class="seg" style="flex:none">${[1, 3, 6, 10].map(x => `<button class="${S.speed === x ? 'on' : ''}" data-act="speed" data-a="${x}">${x}×</button>`).join('')}</div></div>
+  </section>`;
 }
 
 /* ---------- save / load ---------- */
@@ -1037,6 +1148,8 @@ function migrate(o) {
   m.research = Object.assign({ done: {}, cur: null }, o.research || {});
   m.contracts = Object.assign({ offers: [], active: [], refresh: 0 }, o.contracts || {});
   m.prestige = Object.assign({ shares: 0, count: 0 }, o.prestige || {});
+  m.auto = Object.assign({ accept: 1, dispatch: 1, care: 1, events: 1, research: 1, build: 1 }, o.auto || {});
+  m.speed = o.speed || 3;
   for (const w of m.warehouses) w.m = Object.assign({ size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, w.m);
   return m;
 }
@@ -1050,7 +1163,7 @@ function offlineProgress() {
   if (el < 90) return;
   const h = S.fin.hist.slice(-3);
   const rate = h.length ? Math.max(0, h.reduce((a, d) => a + d.profit, 0) / h.length / DAY) : 0;
-  const eff = .15 + (staffOf('dispatcher').length ? .15 : 0) + (staffOf('manager').length ? .2 : 0);
+  const eff = Math.min(.6, .15 + (staffOf('dispatcher').length ? .15 : 0) + (staffOf('manager').length ? .2 : 0) + (S.auto && S.auto.accept && S.auto.dispatch ? .25 : 0));
   const gain = Math.round(rate * el * eff);
   let rmsg = '';
   if (S.research.cur) { const r = RS[S.research.cur.id]; S.research.cur.t += el * researchSpeed(); if (S.research.cur.t >= r.time) { S.research.done[r.id] = 1; S.research.cur = null; S.stats.researched++; rmsg = r.n; } }
@@ -1327,14 +1440,14 @@ function morphKids(from, to) {
 function patch(el, html) { const t = document.createElement('template'); t.innerHTML = html; morphKids(el, t.content); }
 
 /* ---------- toasts & floating text ---------- */
-function toast(msg, kind = '') { U.toasts.push({ id: Math.random(), msg, kind, t: performance.now() }); if (U.toasts.length > 4) U.toasts.shift(); renderToasts(); }
+function toast(msg, kind = '', force) { if (U.quiet && !force && kind !== 'r') return; U.toasts.push({ id: Math.random(), msg, kind, t: performance.now() }); if (U.toasts.length > 4) U.toasts.shift(); renderToasts(); }
 function renderToasts() { const now = performance.now(); U.toasts = U.toasts.filter(t => now - t.t < 3600); patch(document.getElementById('toasts'), U.toasts.map(t => `<div class="toast ${t.kind}" data-key="${t.id}">${esc(t.msg)}</div>`).join('')); }
 let lastFloat = 0;
 function floatText(txt, color) {
   const now = performance.now(); if (now - lastFloat < 250 || document.hidden) return; lastFloat = now;
   const el = document.createElement('div'); el.className = 'float'; el.textContent = txt; el.style.color = color;
   const hud = document.getElementById('hud').getBoundingClientRect();
-  el.style.right = (16 + rnd(0, 30)) + 'px'; el.style.top = (hud.bottom + 4) + 'px';
+  el.style.right = (16 + rnd(0, 30)) + 'px'; el.style.top = (hud.bottom + 48) + 'px';
   document.body.appendChild(el); setTimeout(() => el.remove(), 1300);
 }
 
@@ -1403,15 +1516,16 @@ function vHQ() {
     <div class="lbl">${esc(S.warehouses[0].name)}</div>
     <div class="act">${btn(ic('hand') + 'Mit anpacken', 'help', '', '', U.helpCd > 0 || !S.orders.some(o => o.state === 'sort'))}</div>
   </div>
+  ${autoPanel()}
   ${tut}
   ${fxs ? `<div class="chips">${fxs}</div>` : ''}
   <div class="cols">
     <section class="sec">
       <div class="sech"><h2>Im Lager <span class="cnt">${ready.length}</span></h2>${staffOf('dispatcher').length ? '<span class="chip g">Disposition automatisch</span>' : ''}</div>
       ${bar(cap ? st / cap : 0, st / cap > .9 ? 'r' : 't')}
-      <div class="list">${ready.length ? ready.map(orderInWh).join('') : '<div class="empty">Keine Pakete im Lager. Nimm unten einen Auftrag an.</div>'}</div>
+      <div class="list">${ready.length ? ready.slice(0, 25).map(orderInWh).join('') + moreNote(ready.length - 25, 'Aufträge im Lager') : '<div class="empty">Keine Pakete im Lager. Der Autopilot nimmt gleich Aufträge an.</div>'}</div>
       <div class="sech" style="margin-top:6px"><h2>Unterwegs <span class="cnt">${S.trips.length}</span></h2></div>
-      <div class="list">${S.trips.length ? S.trips.map(tripCard).join('') : '<div class="empty">Gerade ist kein Fahrzeug unterwegs.</div>'}</div>
+      <div class="list">${S.trips.length ? S.trips.slice(0, 20).map(tripCard).join('') + moreNote(S.trips.length - 20, 'Fahrten') : '<div class="empty">Gerade ist kein Fahrzeug unterwegs.</div>'}</div>
     </section>
     <section class="sec">
       <div class="sech"><h2>Neue Aufträge <span class="cnt">${S.board.length}</span></h2>${staffOf('manager').length ? '<span class="chip g">Annahme automatisch</span>' : ''}</div>
@@ -1422,6 +1536,7 @@ function vHQ() {
 function orderMeta(o) {
   return `<div class="chips">${tierChip(o.tier)}<span class="chip">${ic('pin')}${esc(CITY[o.city].n)}</span><span class="chip">${num(o.pk)} Pakete</span>${o.express ? `<span class="chip o">${ic('bolt')}Express</span>` : ''}${o.cold ? `<span class="chip c">${ic('snow')}Kühlung</span>` : ''}${o.contract ? '<span class="chip y">Vertrag</span>' : ''}${o.special ? '<span class="chip y">Sondermission</span>' : ''}</div>`;
 }
+function moreNote(n, what) { return n > 0 ? `<div class="empty">+ ${num(n)} weitere ${what}</div>` : ''; }
 function boardCard(o) {
   const fits = canStore(o.pk); const capable = anyCapableType(o);
   const left = o.exp - S.time;
@@ -1511,7 +1626,9 @@ function vFleet() {
       </div>`;
     }).join('')}</div>`;
   }
-  return seg + `<div class="grid">${S.vehicles.map(v => {
+  const fleetSum = `<div class="chips">${Object.keys(VT).filter(t => S.vehicles.some(v => v.type === t)).map(t => `<span class="chip">${ic(VT[t].ico)}${S.vehicles.filter(v => v.type === t).length}× ${VT[t].n}</span>`).join('')}</div>`;
+  const shownV = S.vehicles.slice().sort((a, b) => a.cond - b.cond).slice(0, 40);
+  return seg + fleetSum + (S.vehicles.length > 40 ? `<div class="sub">Die 40 Fahrzeuge mit dem schlechtesten Zustand von ${num(S.vehicles.length)}.</div>` : '') + `<div class="grid">${shownV.map(v => {
     const t = VT[v.type]; const d = driverOf(v); const tr = S.trips.find(x => x.vid === v.id);
     const status = v.state === 'trip' ? (tr ? { queue: 'Wartet', load: 'Beladung', out: 'Unterwegs nach ' + CITY[tr.city].n, back: 'Rückfahrt' }[tr.phase] : 'Unterwegs') : v.cond <= 8 ? 'Defekt' : needsDriver(v) && !d ? 'Ohne Fahrer' : 'Bereit';
     const cls = status === 'Bereit' ? 'g' : status === 'Defekt' || status === 'Ohne Fahrer' ? 'r' : 'o';
@@ -1539,7 +1656,8 @@ function vTeam() {
   }
   const f = U.roleF;
   const chips = `<div class="seg">${['all', ...roles].map(r => `<button class="${f === r ? 'on' : ''}" data-act="rolef" data-a="${r}">${r === 'all' ? 'Alle' : ROLES[r].pl}</button>`).join('')}</div>`;
-  const list = S.staff.filter(e => f === 'all' || e.role === f);
+  const listAll = S.staff.filter(e => f === 'all' || e.role === f);
+  const list = listAll.slice().sort((a, b) => (b.xp >= staffNeed(b) && b.lvl < 5) - (a.xp >= staffNeed(a) && a.lvl < 5) || b.lvl - a.lvl).slice(0, 40);
   return seg + summary + chips + `<div class="grid">${list.map(e => {
     const need = staffNeed(e); const can = e.xp >= need && e.lvl < 5;
     const veh = e.role === 'driver' ? S.vehicles.find(v => v.driver === e.id) : null;
@@ -1549,7 +1667,7 @@ function vTeam() {
       <div class="row"><span class="sub" style="width:84px">Erfahrung</span><div class="grow">${bar(e.lvl >= 5 ? 1 : e.xp / need, can ? '' : 't')}</div><span class="sub num">${prod} %</span></div>
       <div class="row" style="gap:6px;flex-wrap:wrap">${e.lvl < 5 ? btn(can ? ic('up') + 'Befördern · ' + money(Math.max(200, e.salary) * 4) : 'Schulen · ' + money(Math.max(150, e.salary) * 3), can ? 'promote' : 'train', e.id, can ? 'sm' : 's sm', S.money < (can ? Math.max(200, e.salary) * 4 : Math.max(150, e.salary) * 3) || (!can && e.xp >= need)) : '<span class="chip g">Höchststufe</span>'}${e.founder ? '' : btn('Entlassen', 'fire', e.id, 'r sm')}</div>
     </div>`;
-  }).join('') || '<div class="empty">Noch niemand in dieser Rolle. Unter Bewerbungen einstellen.</div>'}</div>`;
+  }).join('') || '<div class="empty">Noch niemand in dieser Rolle. Unter Bewerbungen einstellen.</div>'}</div>` + moreNote(listAll.length - 40, 'Personen (sortiert: Beförderung möglich zuerst)');
 }
 
 function vMap() {
@@ -1603,14 +1721,14 @@ function vContracts() {
 
 function vResearch() {
   const cur = S.research.cur;
-  const head = cur ? `<div class="card hot"><div class="row"><div class="ico">${ic('flask')}</div><div class="grow"><div class="ttl">${RS[cur.id].n}</div><div class="sub">${RS[cur.id].d} · noch ${dur((RS[cur.id].time - cur.t) / researchSpeed())}</div></div></div>${bar(cur.t / RS[cur.id].time)}</div>` : `<div class="empty">Kein laufendes Projekt. Wähle unten eine Technologie.</div>`;
+  const head = cur ? `<div class="card hot"><div class="row"><div class="ico">${ic('flask')}</div><div class="grow"><div class="ttl">${RS[cur.id].n}</div><div class="sub">${RS[cur.id].d} · noch ${dur((RS[cur.id].time - cur.t) / researchSpeed() / 2)}</div></div></div>${bar(cur.t / RS[cur.id].time)}</div>` : `<div class="empty">Kein laufendes Projekt. Wähle unten eine Technologie.</div>`;
   return `<div class="row sb"><h1>Forschung</h1><span class="chip">${S.stats.researched} / ${RESEARCH.length}</span></div>${head}
   <div class="tree">${[1, 2, 3, 4, 5].map(s => `<section class="sec" data-key="rs-${s}"><div class="sech"><h2>Stufe ${s} · ${STAGES[s].n}</h2></div><div class="grid">${RESEARCH.filter(r => r.st === s).map(r => {
     const state = researchState(r);
     const req = r.req.filter(q => !S.research.done[q]).map(q => RS[q].n).join(', ');
     return `<div class="card ${state === 'done' ? '' : state === 'open' ? '' : state === 'cur' ? 'hot' : 'dim'}" data-key="r-${r.id}">
       <div class="row"><div class="grow"><div class="ttl">${r.n}</div><div class="sub">${r.d}</div></div>${state === 'done' ? `<span class="chip g">${ic('check')}Fertig</span>` : ''}</div>
-      ${state === 'open' ? `<div class="row sb"><span class="sub">${ic('clock').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} ${dur(r.time / researchSpeed())}</span>${btn(money(r.cost), 'research', r.id, 'sm', !!cur || S.money < r.cost)}</div>` : ''}
+      ${state === 'open' ? `<div class="row sb"><span class="sub">${ic('clock').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} ${dur(r.time / researchSpeed() / 2)}</span>${btn(money(r.cost), 'research', r.id, 'sm', !!cur || S.money < r.cost)}</div>` : ''}
       ${state === 'cur' ? bar(S.research.cur.t / r.time) : ''}
       ${state === 'req' ? `<span class="chip">${ic('lock')}Benötigt ${esc(req)}</span>` : ''}
       ${state === 'stage' ? `<span class="chip">${ic('lock')}Ab Stufe ${r.st}</span>` : ''}
@@ -1713,7 +1831,7 @@ function renderModal() {
     const s = STAGES[M.st];
     body = `<div class="sub">Neue Unternehmensstufe</div><h1>${M.st} · ${s.n}</h1><div class="steps">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= M.st ? 'on' : ''}"></i>`).join('')}</div><p>Freigeschaltet:</p><div class="chips">${s.unlock.map(u => `<span class="chip o">${esc(u)}</span>`).join('')}</div>${btn('Weiter', 'close', '', 'w')}`;
   } else if (M.type === 'offline') {
-    body = `<div class="sub">Willkommen zurück</div><h1>${money(M.gain)}</h1><p>Während deiner Abwesenheit (${dur(M.el)}) hat dein Team mit ${Math.round(M.eff * 100)} % Effizienz weitergearbeitet.${M.rmsg ? ` Außerdem wurde „${esc(M.rmsg)}“ fertig erforscht.` : ''} Disponenten und Manager steigern die Offline-Erträge.</p>${btn('Weiter', 'close', '', 'w')}`;
+    body = `<div class="sub">Willkommen zurück</div><h1>${money(M.gain)}</h1><p>Während deiner Abwesenheit (${dur(M.el)}) hat dein Team mit ${Math.round(M.eff * 100)} % Effizienz weitergearbeitet.${M.rmsg ? ` Außerdem wurde „${esc(M.rmsg)}“ fertig erforscht.` : ''} Autopilot, Disponenten und Manager steigern die Offline-Erträge.</p>${btn('Weiter', 'close', '', 'w')}`;
   } else if (M.type === 'pickveh') {
     const o = S.orders.find(x => x.id === M.oid); if (!o || o.state !== 'ready') { U.modal = null; return renderModal(); }
     const list = S.vehicles.filter(v => canServe(v, o));
@@ -1763,6 +1881,8 @@ const ACT = {
   dispatchv(a) { const [o, v] = a.split(':'); if (dispatch(S.orders.find(x => x.id === o), v)) U.modal = null; },
   help() { if (U.helpCd > 0) return; const o = S.orders.find(o => o.state === 'sort'); if (!o) return; const n = Math.min(o.sortLeft, 3 + S.level * .5); o.sortLeft -= n; S.stats.sorted += n; if (o.sortLeft <= 1e-6) { o.sortLeft = 0; o.state = 'ready'; } U.helpCd = 1.2; },
   tutskip() { S.tut = 99; },
+  auto(a) { if (a === 'all') { const on = !AP_KEYS.every(([k]) => S.auto[k]); for (const [k] of AP_KEYS) S.auto[k] = on ? 1 : 0; toast(on ? 'Autopilot komplett eingeschaltet.' : 'Autopilot ausgeschaltet. Du steuerst selbst.', on ? 'g' : ''); } else S.auto[a] = S.auto[a] ? 0 : 1; },
+  speed(a) { S.speed = +a; },
   selwh(a) { U.wh = +a; },
   mod(a) { const [w, k] = a.split(':'); upgradeMod(+w, k); },
   buyveh(a) { buyVehicle(a); },
@@ -1826,6 +1946,7 @@ function frame(now) {
   let dt = (now - lastT) / 1000; lastT = now;
   if (dt > 300) { S.lastSave = Date.now() - dt * 1000; offlineProgress(); dt = 0; }
   dt = Math.min(dt, 300);
+  dt *= S.speed || 1;
   while (dt > 0) { const s = Math.min(.25, dt); step(s); dt -= s; }
   if (U.helpCd > 0) U.helpCd -= (now - (frame.p || now)) / 1000; frame.p = now;
   uiAcc += 1; saveAcc += 1;

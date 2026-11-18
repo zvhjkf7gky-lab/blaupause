@@ -1,0 +1,1852 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Global Logistics Tycoon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#0a1424">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Logistics Tycoon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: fixed HUD on top, one scrolling "bay" in the middle, dock-style tab bar at the bottom (side rail on tablets). */
+:root{
+  --bg:#0a1424; --panel:#112038; --panel2:#182c49; --line:#24406a; --ink:#eef3fa; --mute:#8ea4c2;
+  --orange:#ff7a1a; --orange2:#ffa452; --teal:#2e8c88; --good:#38cc8c; --warn:#ffc23d; --bad:#ff5d61;
+  --f-disp:'Barlow Condensed','Arial Narrow',sans-serif; --f-body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
+button{font:inherit;color:inherit}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.hud{flex:none;padding-top:calc(env(safe-area-inset-top,0px) + 8px);padding-bottom:8px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));background:linear-gradient(180deg,#0d1b31,#0b1729);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;z-index:5}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.lvl{position:relative;width:44px;height:44px;flex:none}
+.lvl svg{position:absolute;inset:0}
+.lvl b{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-disp);font-size:19px;font-weight:800}
+.co{min-width:0}
+.co .nm{font-family:var(--f-disp);font-weight:700;font-size:17px;letter-spacing:.02em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:42vw}
+.co .st{font-size:12px;color:var(--mute);white-space:nowrap}
+.hud .sp{flex:1}
+.cash{text-align:right}
+.cash .m{font-family:var(--f-disp);font-weight:800;font-size:24px;letter-spacing:.01em;font-variant-numeric:tabular-nums;line-height:1}
+.cash .d{font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums;margin-top:3px;white-space:nowrap}
+.pos{color:var(--good)} .neg{color:var(--bad)}
+.daybar{height:3px;background:var(--line);border-radius:2px;overflow:hidden;margin-top:4px}
+.daybar i{display:block;height:100%;background:var(--orange)}
+.body{flex:1;display:flex;min-height:0}
+.rail{display:none}
+main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 24px}
+.view{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+nav.tabs{flex:none;display:flex;background:#0c182b;border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tab{flex:1;background:none;border:0;padding:8px 2px 7px;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--mute);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;position:relative;cursor:pointer;min-height:54px}
+.tab svg{width:23px;height:23px}
+.tab.on{color:var(--orange)}
+.tab .dot{position:absolute;top:6px;left:calc(50% + 8px);width:8px;height:8px;border-radius:50%;background:var(--orange);box-shadow:0 0 0 2px #0c182b}
+@media (min-width:880px){
+  nav.tabs{display:none}
+  .rail{display:flex;flex-direction:column;gap:2px;width:92px;flex:none;border-right:1px solid var(--line);background:#0c182b;padding:10px 6px;padding-left:max(6px,env(safe-area-inset-left,0px));padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));overflow-y:auto}
+  .rail .tab{flex:none;min-height:62px;border-radius:12px}
+  .rail .tab.on{background:#14284a}
+}
+h2{font-family:var(--f-disp);font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:0;display:flex;align-items:center;gap:8px}
+h2 .cnt{color:var(--ink);font-variant-numeric:tabular-nums}
+h1{font-family:var(--f-disp);font-weight:800;font-size:30px;letter-spacing:.01em;text-transform:uppercase;margin:0;line-height:1}
+.sec{display:flex;flex-direction:column;gap:10px;min-width:0}
+.sech{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cols{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:980px){.cols{grid-template-columns:1fr 1fr}}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card.hot{border-color:var(--orange)}
+.card.dim{opacity:.55}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.row.sb{justify-content:space-between}
+.grow{flex:1;min-width:0}
+.ttl{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub{font-size:12.5px;color:var(--mute)}
+.num{font-variant-numeric:tabular-nums}
+.big{font-family:var(--f-disp);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums}
+.ico{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;flex:none;background:var(--panel2);color:var(--orange2)}
+.ico svg{width:22px;height:22px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:11.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:3px 7px;border-radius:6px;background:var(--panel2);color:var(--mute);white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+.chip svg{width:12px;height:12px}
+.chip.o{background:rgba(255,122,26,.16);color:var(--orange2)}
+.chip.c{background:rgba(74,163,255,.16);color:#8cc6ff}
+.chip.g{background:rgba(56,204,140,.15);color:var(--good)}
+.chip.r{background:rgba(255,93,97,.15);color:var(--bad)}
+.chip.y{background:rgba(255,194,61,.15);color:var(--warn)}
+.btn{appearance:none;border:0;border-radius:11px;padding:10px 14px;min-height:42px;font-weight:700;font-size:14px;background:var(--orange);color:#1a0d02;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;touch-action:manipulation;transition:transform .08s,filter .15s}
+.btn:active{transform:scale(.96)}
+.btn:disabled{background:#2a3b57;color:#7488a5;cursor:default;transform:none}
+.btn.s{background:var(--panel2);color:var(--ink);border:1px solid var(--line)}
+.btn.s:disabled{color:#5f7393}
+.btn.g{background:var(--good);color:#04210f}
+.btn.r{background:transparent;color:var(--bad);border:1px solid rgba(255,93,97,.4)}
+.btn.sm{min-height:34px;padding:6px 10px;font-size:13px;border-radius:9px}
+.btn.w{width:100%}
+.btn svg{width:16px;height:16px}
+:focus-visible{outline:2px solid var(--orange2);outline-offset:2px}
+.bar{height:7px;border-radius:4px;background:#0b1830;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--orange);border-radius:4px;transition:width .2s linear}
+.bar.t i{background:var(--teal)} .bar.g i{background:var(--good)} .bar.r i{background:var(--bad)} .bar.y i{background:var(--warn)} .bar.w i{background:#cfd9e6}
+.pips{display:flex;gap:3px}
+.pips i{width:10px;height:6px;border-radius:2px;background:#25385a}
+.pips i.on{background:var(--orange)}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:3px;gap:3px;overflow-x:auto}
+.seg button{flex:1;border:0;background:none;padding:8px 10px;border-radius:9px;font-weight:700;font-size:13px;color:var(--mute);white-space:nowrap;cursor:pointer;min-height:36px}
+.seg button.on{background:var(--panel2);color:var(--ink)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px 12px}
+.kpi .l{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+.kpi .v{font-family:var(--f-disp);font-weight:800;font-size:24px;font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.empty{border:1px dashed var(--line);border-radius:14px;padding:16px;color:var(--mute);font-size:14px;text-align:center}
+/* scene */
+.scene{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#2f4a3e;height:clamp(230px,44vh,440px)}
+.scene canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.scene .ov{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-wrap:wrap;gap:6px;pointer-events:none}
+.pill{background:rgba(9,18,34,.82);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.08);border-radius:9px;padding:5px 9px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.pill svg{width:14px;height:14px;color:var(--orange2)}
+.scene .act{position:absolute;right:10px;bottom:10px;display:flex;gap:8px}
+.scene .lbl{position:absolute;left:12px;bottom:12px;font-family:var(--f-disp);font-weight:800;font-size:15px;letter-spacing:.1em;text-transform:uppercase;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none}
+/* map */
+.map{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#0c2440;height:clamp(300px,56vh,560px);touch-action:none}
+.map canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.map .ctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
+.map .pre{position:absolute;left:10px;bottom:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap}
+.map .pre .btn{background:rgba(9,18,34,.85);color:var(--ink);border:1px solid var(--line)}
+.map .pre .btn.on{border-color:var(--orange);color:var(--orange2)}
+/* tutorial */
+.tip{background:linear-gradient(120deg,#1c3157,#14284a);border:1px solid #2d4f86;border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center}
+.tip .n{font-family:var(--f-disp);font-weight:800;font-size:28px;color:var(--orange);line-height:1;flex:none;width:28px;text-align:center}
+/* overlays */
+.ovl{position:fixed;inset:0;z-index:20;background:rgba(3,8,18,.62);display:flex;align-items:flex-end;justify-content:center;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px);animation:fade .18s ease}
+.sheet{background:var(--panel);border:1px solid var(--line);border-bottom:0;border-radius:20px 20px 0 0;width:100%;max-width:560px;max-height:86vh;overflow-y:auto;padding:16px;padding-bottom:calc(18px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:12px;animation:up .22s cubic-bezier(.2,.9,.3,1)}
+@media (min-width:700px){.ovl{align-items:center}.sheet{border-radius:20px;border-bottom:1px solid var(--line);padding-bottom:18px}}
+.sheet .grab{width:42px;height:5px;border-radius:3px;background:var(--line);align-self:center;margin-top:-6px}
+.sheet p{margin:0;line-height:1.45;color:#c9d5e6}
+.choice{display:flex;flex-direction:column;gap:8px}
+.choice .btn{justify-content:flex-start;text-align:left;white-space:normal;padding:12px 14px}
+.choice .btn small{display:block;font-weight:500;opacity:.8;font-size:12.5px}
+textarea{width:100%;min-height:110px;background:#0b1830;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+input[type=text]{width:100%;background:#0b1830;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:16px}
+.toasts{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 70px);z-index:30;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(92vw,440px)}
+.toast{background:rgba(14,28,52,.96);border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:10px;padding:9px 12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);animation:tin .25s ease;width:100%}
+.toast.g{border-left-color:var(--good)} .toast.r{border-left-color:var(--bad)} .toast.y{border-left-color:var(--warn)}
+.float{position:fixed;z-index:25;pointer-events:none;font-family:var(--f-disp);font-weight:800;font-size:20px;color:var(--good);text-shadow:0 2px 6px rgba(0,0,0,.5);animation:flt 1.3s ease-out forwards}
+.flash{animation:flash .6s ease}
+@keyframes fade{from{opacity:0}}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+@keyframes tin{from{transform:translateY(-8px);opacity:0}}
+@keyframes flt{to{transform:translateY(-60px);opacity:0}}
+@keyframes flash{0%{box-shadow:0 0 0 0 rgba(255,122,26,.8)}100%{box-shadow:0 0 0 14px rgba(255,122,26,0)}}
+.stage-banner{border-radius:16px;padding:14px;background:radial-gradient(120% 140% at 0% 0%,#24477c,#112038);border:1px solid #2d4f86}
+.steps{display:flex;gap:4px;margin-top:10px}
+.steps i{flex:1;height:6px;border-radius:3px;background:#26406a}
+.steps i.on{background:var(--orange)}
+.tree{display:flex;flex-direction:column;gap:14px}
+.list{display:flex;flex-direction:column;gap:8px}
+.lb{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:11px;background:var(--panel);border:1px solid var(--line)}
+.lb.me{border-color:var(--orange);background:#1d2c46}
+.lb .rk{font-family:var(--f-disp);font-weight:800;font-size:20px;width:26px;color:var(--mute)}
+.lb.me .rk{color:var(--orange)}
+.chart svg{width:100%;height:auto;display:block}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mute)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+table.t{width:100%;border-collapse:collapse;font-size:13.5px}
+table.t td{padding:6px 0;border-bottom:1px solid var(--line)}
+table.t td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.more{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:10px;align-items:flex-start;cursor:pointer;position:relative;text-align:left;min-height:110px}
+.tile svg{width:28px;height:28px;color:var(--orange2)}
+.tile b{font-family:var(--f-disp);font-size:19px;letter-spacing:.04em;text-transform:uppercase}
+.tile .dot{position:absolute;top:12px;right:12px;width:9px;height:9px;border-radius:50%;background:var(--orange)}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="hud" id="hud"></header>
+  <div class="body">
+    <nav class="rail" id="rail"></nav>
+    <main id="main"><div class="view" id="view"></div></main>
+  </div>
+  <nav class="tabs" id="tabs"></nav>
+</div>
+<div id="overlay"></div>
+<div class="toasts" id="toasts"></div>
+<script>
+'use strict';
+/* =====================================================================
+   GLOBAL LOGISTICS TYCOON
+   Sections: helpers · data · state · economy · simulation · events ·
+             missions · scene renderer · map renderer · UI · input · boot
+   ===================================================================== */
+
+/* ---------- helpers ---------- */
+const DAY = 60;                       // seconds per game day
+const SAVE_KEY = 'glt-save-v1';
+const rnd = (a, b) => a + Math.random() * (b - a);
+const rint = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const nf = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 1 });
+const cf = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 });
+function money(v) { const a = Math.abs(v); return (v < -0.5 ? '−' : '') + (a >= 1e6 ? cf.format(a) : nf.format(Math.round(a))) + ' €'; }
+function num(v) { return Math.abs(v) >= 1e6 ? cf.format(v) : nf.format(Math.round(v)); }
+function dur(s) { s = Math.max(0, Math.ceil(s)); if (s < 60) return s + ' s'; const m = Math.floor(s / 60); if (m < 60) return m + ':' + String(s % 60).padStart(2, '0') + ' min'; return Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function wpick(items, wf) { let tot = 0; for (const i of items) tot += wf(i); let r = Math.random() * tot; for (const i of items) { r -= wf(i); if (r <= 0) return i; } return items[items.length - 1]; }
+function km(a, b) { const R = 6371, t = Math.PI / 180; const dLat = (b.lat - a.lat) * t, dLon = (b.lon - a.lon) * t; const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * t) * Math.cos(b.lat * t) * Math.sin(dLon / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); }
+
+const I = {
+  home: '<path d="M3 21V9l9-5 9 5v12"/><path d="M7 21v-7h10v7M7 17.5h10"/>',
+  box: '<path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/>',
+  truck: '<path d="M2 6h11v10H2zM13 9h4.5l3.5 4v3h-8z"/><circle cx="6" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/>',
+  van: '<path d="M2 7h12l4 4h3v6H2z"/><path d="M14 7v4h4"/><circle cx="6.5" cy="17.5" r="1.8"/><circle cx="16.5" cy="17.5" r="1.8"/>',
+  plane: '<path d="M2 13.5 9 12l4-8h2l-1.5 8 6.5-.5 1.5-2.5h1.5l-1 4 1 4H21.5L20 14.5l-6.5-.5L15 22h-2l-4-8-7-1.5z"/>',
+  ship: '<path d="M3 15h18l-2.5 5h-13z"/><path d="M6 15V9h12v6M9 9V5h6v4"/>',
+  train: '<rect x="5" y="3" width="14" height="13" rx="3"/><path d="M5 10h14M9 20l-2 2M15 20l2 2M8 16l-1 4h10l-1-4"/>',
+  drone: '<circle cx="5" cy="5" r="2.5"/><circle cx="19" cy="5" r="2.5"/><path d="M7 7l3 3h4l3-3M10 10v5h4v-5M9 19h6"/>',
+  users: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><path d="M16 4.6a3 3 0 0 1 0 6M18.5 14.2c1.6.8 2.5 2.9 2.5 5.8"/>',
+  globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3.2 3.4 3.2 14.6 0 18M12 3c-3.2 3.4-3.2 14.6 0 18"/>',
+  flask: '<path d="M9 3h6M10 3v6l-5.5 9.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3M7.2 15h9.6"/>',
+  chart: '<path d="M4 20V11M10 20V5M16 20v-6M3 20h18"/>',
+  doc: '<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0zM8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v3M8 21h8M9.5 16h5l.5 5h-6z"/>',
+  grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/>',
+  bolt: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  snow: '<path d="M12 2v20M3.3 7l17.4 10M3.3 17 20.7 7M9 4l3 2 3-2M9 20l3-2 3 2"/>',
+  star: '<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  wrench: '<path d="M14.5 6.5a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8M3 21l6-6"/><path d="M14.5 6.5 17 4a4 4 0 0 1 3 3l-2.5 2.5"/>',
+  up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  check: '<path d="m5 12 4.5 4.5L19 7"/>',
+  hand: '<path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12M11 11V4.5a1.5 1.5 0 0 1 3 0V12M14 11.5V6a1.5 1.5 0 0 1 3 0v8c0 4-2.5 7-6.5 7-3 0-4.5-1.5-6-4l-2-3.5a1.5 1.5 0 0 1 2.5-1.5L8 14"/>',
+  send: '<path d="M4 12h12M12 6l6 6-6 6"/>',
+  pin: '<path d="M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  minus: '<path d="M5 12h14"/>',
+  bank: '<path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
+  x: '<path d="M6 6l12 12M18 6 6 18"/>',
+  flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+};
+const ic = (n, cls = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${I[n] || ''}</svg>`;
+
+/* ---------- static game data ---------- */
+const CITIES = [
+  { id: 'hh', n: 'Hamburg', c: 'DE', lon: 9.99, lat: 53.55, z: 0, st: 1, coast: 1 },
+  { id: 'hl', n: 'Lübeck', c: 'DE', lon: 10.69, lat: 53.87, z: 0, st: 2, coast: 1 },
+  { id: 'hb', n: 'Bremen', c: 'DE', lon: 8.80, lat: 53.08, z: 0, st: 2, coast: 1 },
+  { id: 'ki', n: 'Kiel', c: 'DE', lon: 10.13, lat: 54.32, z: 0, st: 2, coast: 1 },
+  { id: 'ha', n: 'Hannover', c: 'DE', lon: 9.73, lat: 52.37, z: 0, st: 2 },
+  { id: 'be', n: 'Berlin', c: 'DE', lon: 13.40, lat: 52.52, z: 0, st: 3 },
+  { id: 'le', n: 'Leipzig', c: 'DE', lon: 12.37, lat: 51.34, z: 0, st: 3 },
+  { id: 'ko', n: 'Köln', c: 'DE', lon: 6.96, lat: 50.94, z: 0, st: 3 },
+  { id: 'fr', n: 'Frankfurt', c: 'DE', lon: 8.68, lat: 50.11, z: 0, st: 3 },
+  { id: 'su', n: 'Stuttgart', c: 'DE', lon: 9.18, lat: 48.78, z: 0, st: 3 },
+  { id: 'mu', n: 'München', c: 'DE', lon: 11.58, lat: 48.14, z: 0, st: 3 },
+  { id: 'rtm', n: 'Rotterdam', c: 'NL', lon: 4.48, lat: 51.92, z: 4, st: 4, coast: 1 },
+  { id: 'par', n: 'Paris', c: 'FR', lon: 2.35, lat: 48.86, z: 4, st: 4 },
+  { id: 'waw', n: 'Warschau', c: 'PL', lon: 21.01, lat: 52.23, z: 4, st: 4 },
+  { id: 'mil', n: 'Mailand', c: 'IT', lon: 9.19, lat: 45.46, z: 4, st: 4 },
+  { id: 'mad', n: 'Madrid', c: 'ES', lon: -3.70, lat: 40.42, z: 4, st: 4 },
+  { id: 'sto', n: 'Stockholm', c: 'SE', lon: 18.07, lat: 59.33, z: 4, st: 4, coast: 1 },
+  { id: 'nyc', n: 'New York', c: 'US', lon: -74.0, lat: 40.71, z: 5, st: 4, coast: 1 },
+  { id: 'dxb', n: 'Dubai', c: 'AE', lon: 55.27, lat: 25.20, z: 5, st: 4, coast: 1 },
+  { id: 'sha', n: 'Shanghai', c: 'CN', lon: 121.47, lat: 31.23, z: 5, st: 4, coast: 1 },
+  { id: 'la', n: 'Los Angeles', c: 'US', lon: -118.24, lat: 34.05, z: 5, st: 5, coast: 1 },
+  { id: 'sao', n: 'São Paulo', c: 'BR', lon: -46.63, lat: -23.55, z: 5, st: 5, coast: 1 },
+  { id: 'lag', n: 'Lagos', c: 'NG', lon: 3.38, lat: 6.52, z: 5, st: 5, coast: 1 },
+  { id: 'bom', n: 'Mumbai', c: 'IN', lon: 72.88, lat: 19.08, z: 5, st: 5, coast: 1 },
+  { id: 'sin', n: 'Singapur', c: 'SG', lon: 103.82, lat: 1.35, z: 5, st: 5, coast: 1 },
+  { id: 'tyo', n: 'Tokio', c: 'JP', lon: 139.69, lat: 35.69, z: 5, st: 5, coast: 1 },
+  { id: 'syd', n: 'Sydney', c: 'AU', lon: 151.21, lat: -33.87, z: 5, st: 5, coast: 1 },
+];
+const CITY = Object.fromEntries(CITIES.map(c => [c.id, c]));
+const MARKET_COST = { 1: 0, 2: 3000, 3: 15000, 4: 120000, 5: 600000 };
+const BRANCH_COST = { 1: 0, 2: 25000, 3: 100000, 4: 600000, 5: 2500000 };
+const ZONE_RENT = { 0: 1, 4: 2, 5: 3 };
+
+const STAGES = [null,
+  { n: 'Lokale Logistik', lvl: 1, unlock: ['Lieferwagen', 'Lagerarbeiter & Disponenten', 'Aufträge in Hamburg'] },
+  { n: 'Regionale Logistik', lvl: 4, unlock: ['LKW & Kühl-LKW', 'Manager & Mechaniker', 'Städte im Umland', 'Lieferverträge mit größeren Kunden'] },
+  { n: 'Nationale Logistik', lvl: 8, unlock: ['Sattelzüge & Güterzüge', 'Logistik-Spezialisten', 'Ganz Deutschland', 'Automatisierung im Lager'] },
+  { n: 'Internationale Logistik', lvl: 12, research: 'customs', unlock: ['Europa & Übersee', 'Frachtflugzeuge & Containerschiffe', 'Häfen & Flughafen-Terminals'] },
+  { n: 'Globales Logistik-Imperium', lvl: 17, unlock: ['Alle Kontinente', 'Mega-Hubs', 'Börsengang (Prestige)'] },
+];
+
+const VT = {
+  van:    { n: 'Lieferwagen', ico: 'van', price: 5000, cap: 30, speed: 70, range: 2, maint: 25, fuel: 0.12, wear: 2.6, st: 1, col: '#eef2f7', acc: '#ff7a1a', len: 1.3, h: .72 },
+  evan:   { n: 'E-Transporter', ico: 'van', price: 11000, cap: 28, speed: 65, range: 2, maint: 12, fuel: 0.03, wear: 1.8, st: 2, req: 'electric', col: '#eef2f7', acc: '#38cc8c', len: 1.3, h: .72 },
+  drone:  { n: 'Lieferdrohne', ico: 'drone', price: 15000, cap: 8, speed: 90, range: 1, maint: 6, fuel: 0.01, wear: 1.2, st: 3, req: 'drones', nodriver: 1, nopark: 1, col: '#cfd8e3', acc: '#ff7a1a', len: .5, h: .2 },
+  truck:  { n: 'LKW 7,5 t', ico: 'truck', price: 24000, cap: 120, speed: 75, range: 3, maint: 55, fuel: 0.28, wear: 2.2, st: 2, col: '#2e8c88', acc: '#eef2f7', len: 2, h: .95 },
+  reefer: { n: 'Kühl-LKW', ico: 'truck', price: 42000, cap: 100, speed: 75, range: 3, maint: 85, fuel: 0.38, wear: 2.4, st: 2, req: 'cold', cold: 1, col: '#f4f7fb', acc: '#4aa3ff', len: 2, h: .95 },
+  semi:   { n: 'Sattelzug', ico: 'truck', price: 90000, cap: 420, speed: 80, range: 4, maint: 140, fuel: 0.45, wear: 2, st: 3, col: '#ff7a1a', acc: '#eef2f7', len: 3, h: 1.05 },
+  etruck: { n: 'E-Sattelzug', ico: 'truck', price: 150000, cap: 400, speed: 80, range: 4, maint: 70, fuel: 0.12, wear: 1.5, st: 3, req: 'electric2', col: '#eef2f7', acc: '#38cc8c', len: 3, h: 1.05 },
+  train:  { n: 'Güterzug', ico: 'train', price: 600000, cap: 2400, speed: 110, range: 4, minT: 3, maint: 900, fuel: 1.6, wear: 1, st: 3, req: 'rail', mod: 'rail', per: 4, nopark: 1 },
+  plane:  { n: 'Frachtflugzeug', ico: 'plane', price: 1400000, cap: 1800, speed: 800, range: 5, minT: 3, maint: 6000, fuel: 3, wear: 1.5, st: 4, req: 'air', mod: 'air', per: 6, nopark: 1 },
+  ship:   { n: 'Containerschiff', ico: 'ship', price: 2400000, cap: 6000, speed: 80, range: 5, minT: 4, maint: 9000, fuel: 3, wear: 1, st: 4, req: 'sea', mod: 'port', per: 4, coastOnly: 1, nopark: 1 },
+};
+const TIER_N = { 1: 'Lokal', 2: 'Regional', 3: 'National', 4: 'Europa', 5: 'Übersee' };
+const RATE = [0, 5, 7, 12, 20, 90];
+const BASE = [0, 35, 70, 160, 400, 2000];
+const SIZE = [0, [4, 22], [18, 80], [40, 220], [80, 500], [200, 2000]];
+
+const ROLES = {
+  driver:     { n: 'Fahrer', pl: 'Fahrer', base: 85, st: 1, ico: 'truck', desc: 'Fährt ein Fahrzeug. Je Stufe +4 % Tempo und −8 % Verschleiß.' },
+  worker:     { n: 'Lagerarbeiter', pl: 'Lagerarbeiter', base: 75, st: 1, ico: 'box', desc: 'Sortiert 1 Paket/s, je Stufe +30 %.' },
+  dispatcher: { n: 'Disponent', pl: 'Disponenten', base: 130, st: 1, ico: 'send', desc: 'Versendet fertige Aufträge automatisch.' },
+  mechanic:   { n: 'Mechaniker', pl: 'Mechaniker', base: 110, st: 2, ico: 'wrench', desc: 'Repariert stehende Fahrzeuge automatisch.' },
+  manager:    { n: 'Manager', pl: 'Manager', base: 260, st: 2, ico: 'users', desc: 'Nimmt passende Aufträge automatisch an. +3 % Erlös je Stufe.' },
+  specialist: { n: 'Logistik-Spezialist', pl: 'Spezialisten', base: 320, st: 3, ico: 'flask', desc: '+15 % Forschungstempo und −2 % Fahrzeit je Stufe.' },
+};
+const FIRST = ['Lena', 'Jonas', 'Mia', 'Elias', 'Sophie', 'Noah', 'Emma', 'Ben', 'Hannah', 'Finn', 'Lea', 'Paul', 'Aylin', 'Mehmet', 'Anna', 'Luca', 'Marie', 'Tim', 'Sara', 'Ali', 'Julia', 'David', 'Nina', 'Jan', 'Olga', 'Piotr', 'Chiara', 'Mateo', 'Yuki', 'Amara', 'Kofi', 'Ines', 'Malte', 'Greta', 'Emil', 'Zeynep'];
+const LAST = ['Becker', 'Schulz', 'Wagner', 'Yılmaz', 'Hoffmann', 'Koch', 'Richter', 'Kowalski', 'Klein', 'Wolf', 'Neumann', 'Schröder', 'Braun', 'Krüger', 'Hartmann', 'Lange', 'Weber', 'Demir', 'Novak', 'Rossi', 'Petersen', 'Jansen', 'Mensah', 'Tanaka', 'Haas', 'Vogt'];
+
+const CTYPES = [
+  { id: 'shop', n: 'Laden', rep: 0, w: 5, size: .7, pay: 1, cold: 0, names: ['Kiosk am Markt', 'Blumen Hansen', 'Buchladen Seitenweise', 'Eisenwaren Kuhl', 'Fahrradladen Speiche', 'Teehaus Ostwind', 'Spielwaren Kreisel'] },
+  { id: 'rest', n: 'Restaurant', rep: 0, w: 3, size: .6, pay: 1.05, cold: 1, names: ['Fischhaus Elbblick', 'Trattoria Sole', 'Bistro Kombüse', 'Ramen Kaze', 'Café Leuchtturm', 'Grillhaus Anker'] },
+  { id: 'web', n: 'Onlineshop', rep: 8, w: 4, size: 1.1, pay: 1, cold: 0, names: ['Klickkauf', 'Paketmarkt24', 'Nordbox', 'Stilwerk Online', 'Technikfuchs', 'Gartenglück Shop'] },
+  { id: 'super', n: 'Supermarkt', rep: 20, w: 3, size: 1.3, pay: 1.05, cold: 1, names: ['Frischmarkt', 'Grünkorb', 'Vollkorb Markt', 'Marktplatz Plus', 'Hafenmarkt'] },
+  { id: 'fab', n: 'Fabrik', rep: 35, w: 2, size: 1.7, pay: 1.1, cold: 0, names: ['Stahlwerk Nord', 'Elektrowerk Brandt', 'Möbelfabrik Eiche', 'Kunststoff Kessler', 'Maschinenbau Rhode'] },
+  { id: 'corp', n: 'Konzern', rep: 55, w: 2, size: 2.3, pay: 1.2, cold: 1, names: ['Helion Industries', 'Vantor Group', 'Kairos Pharma', 'Brightline Retail', 'Okeanos Foods'] },
+];
+const CT = Object.fromEntries(CTYPES.map(c => [c.id, c]));
+
+const MODS = {
+  size:    { n: 'Hallengröße', ico: 'home', base: 3000, g: 2.0, max: 8, from: 1, desc: 'Mehr Fläche: +65 % Lagerkapazität und +2 Arbeitsplätze je Stufe.' },
+  shelves: { n: 'Regale', ico: 'box', base: 400, g: 1.5, max: 12, desc: '+22 Paketplätze je Stufe (mal Hallengröße).' },
+  conv:    { n: 'Förderbänder', ico: 'send', base: 1800, g: 2.2, max: 5, desc: '+1,5 Pakete/s und +10 % Sortiertempo je Stufe.' },
+  sorter:  { n: 'Sortieranlage', ico: 'gear', base: 30000, g: 2.3, max: 5, req: 'autosort', desc: '+35 % Sortiertempo je Stufe.' },
+  docks:   { n: 'Laderampen', ico: 'truck', base: 1200, g: 1.9, max: 8, from: 1, desc: 'Je Rampe kann ein Fahrzeug gleichzeitig beladen werden.' },
+  park:    { n: 'Parkplatz', ico: 'pin', base: 1500, g: 1.75, max: 10, from: 1, desc: '+2 Stellplätze für Straßenfahrzeuge je Stufe.' },
+  robot:   { n: 'Robotik', ico: 'bolt', base: 250000, g: 2.5, max: 4, req: 'robotics', desc: '+15 Pakete/s je Stufe durch Lagerroboter.' },
+  rail:    { n: 'Bahnanschluss', ico: 'train', base: 350000, g: 1, max: 1, req: 'rail', desc: 'Gleis für bis zu 4 Güterzüge.' },
+  air:     { n: 'Luftfracht-Terminal', ico: 'plane', base: 1200000, g: 1, max: 1, req: 'air', desc: 'Flughafen-Anbindung für bis zu 6 Frachtflugzeuge.' },
+  port:    { n: 'Hafenterminal', ico: 'ship', base: 1800000, g: 1, max: 1, req: 'sea', coast: 1, desc: 'Kaianlage für bis zu 4 Containerschiffe. Nur an Küstenstädten.' },
+  mega:    { n: 'Mega-Hub', ico: 'star', base: 15000000, g: 1, max: 1, req: 'megahub', desc: 'Dreifache Kapazität und +50 % Sortiertempo.' },
+};
+const MOD_ORDER = ['size', 'shelves', 'conv', 'sorter', 'docks', 'park', 'robot', 'rail', 'air', 'port', 'mega'];
+
+const RESEARCH = [
+  { id: 'scanner', n: 'Barcode-Scanner', st: 1, cost: 1500, time: 40, req: [], d: '+20 % Sortiertempo' },
+  { id: 'express', n: 'Express-Service', st: 1, cost: 2500, time: 50, req: [], d: 'Express-Aufträge mit +60 % Erlös und kurzen Fristen' },
+  { id: 'routes', n: 'Tourenplanung', st: 2, cost: 6000, time: 70, req: ['scanner'], d: '−10 % Fahrzeit' },
+  { id: 'cold', n: 'Kühlkette', st: 2, cost: 15000, time: 90, req: [], d: 'Kühl-LKW und Kühlaufträge (+45 % Erlös)' },
+  { id: 'autosort', n: 'Automatische Sortierung', st: 2, cost: 12000, time: 90, req: ['scanner'], d: 'Schaltet Sortieranlagen frei' },
+  { id: 'fleet', n: 'Flottenmanagement', st: 2, cost: 20000, time: 100, req: ['routes'], d: '−25 % Verschleiß, −15 % Wartungskosten' },
+  { id: 'electric', n: 'Elektromobilität', st: 2, cost: 30000, time: 110, req: [], d: 'E-Transporter mit minimalen Energiekosten' },
+  { id: 'rail', n: 'Schienengüterverkehr', st: 3, cost: 120000, time: 140, req: ['fleet'], d: 'Bahnanschluss und Güterzüge' },
+  { id: 'electric2', n: 'E-Schwerlast', st: 3, cost: 150000, time: 140, req: ['electric'], d: 'Elektrische Sattelzüge' },
+  { id: 'ai_routes', n: 'KI-Routenoptimierung', st: 3, cost: 250000, time: 170, req: ['routes'], d: '−15 % Fahrzeit' },
+  { id: 'robotics', n: 'Lagerrobotik', st: 3, cost: 300000, time: 170, req: ['autosort'], d: 'Robotik-Ausbau im Lager' },
+  { id: 'customs', n: 'Zoll & Außenhandel', st: 3, cost: 250000, time: 180, req: [], d: 'Öffnet Europa und Übersee (Stufe 4)' },
+  { id: 'drones', n: 'Drohnenzustellung', st: 4, cost: 900000, time: 180, req: ['ai_routes'], d: 'Lieferdrohnen für Kleinaufträge ohne Fahrer' },
+  { id: 'air', n: 'Luftfracht', st: 4, cost: 1500000, time: 200, req: ['customs'], d: 'Luftfracht-Terminal und Frachtflugzeuge' },
+  { id: 'sea', n: 'Seefracht', st: 4, cost: 2000000, time: 220, req: ['customs'], d: 'Hafenterminal und Containerschiffe' },
+  { id: 'autocustoms', n: 'Automatisierte Zollabwicklung', st: 4, cost: 2500000, time: 220, req: ['customs'], d: '−70 % Wartezeit beim Zoll' },
+  { id: 'tracking', n: 'Globales Tracking', st: 4, cost: 4000000, time: 240, req: ['customs'], d: '+10 % Erlös, +50 % Ruf-Gewinn' },
+  { id: 'autonomous', n: 'Autonome Fahrzeuge', st: 5, cost: 8000000, time: 260, req: ['ai_routes', 'fleet'], d: 'Fahrzeuge fahren ohne Fahrer' },
+  { id: 'megahub', n: 'Mega-Hub-Technik', st: 5, cost: 12000000, time: 280, req: ['robotics'], d: 'Ausbau von Lagern zu Mega-Hubs' },
+];
+const RS = Object.fromEntries(RESEARCH.map(r => [r.id, r]));
+
+/* ---------- state ---------- */
+let S = null;
+const U = { tab: 'hq', sub: { fleet: 'own', team: 'staff', goals: 'daily', contracts: 'active' }, wh: 0, modal: null, toasts: [], helpCd: 0, mapCity: null, roleF: 'all', confirmReset: false };
+
+function ledger() { return { rev: 0, inv: 0, exp: { salary: 0, maint: 0, fuel: 0, rent: 0, power: 0, ins: 0, repair: 0, interest: 0, tax: 0, other: 0 } }; }
+function initComps() { return [{ n: 'Nordwind Cargo', v: 2e6, g: .012 }, { n: 'Atlas Freight', v: 15e6, g: .009 }, { n: 'Meridian Logistics', v: 90e6, g: .007 }, { n: 'Pacific Line Group', v: 400e6, g: .005 }, { n: 'Orbis Express', v: 1.5e9, g: .004 }]; }
+
+function newGame(keep) {
+  S = {
+    v: 1, name: keep ? keep.name : 'Elbe Logistik', money: 2500, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
+    stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0 },
+    markets: { hh: 1 }, branches: { hh: 1 },
+    warehouses: [{ id: 'w1', city: 'hh', name: 'Zentrallager Hamburg', m: { size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, inv: 0 }],
+    vehicles: [{ id: 'v1', type: 'van', name: 'Lieferwagen 1', cond: 100, up: { spd: 0, cap: 0 }, driver: 'me', state: 'idle' }],
+    staff: [{ id: 'me', role: 'driver', name: 'Du (Gründung)', lvl: 1, xp: 0, salary: 0, founder: 1 }],
+    cand: {}, board: [], orders: [], trips: [], spawnT: 1.5, autoT: { disp: 0, man: 0 },
+    research: { done: {}, cur: null },
+    contracts: { offers: [], active: [], refresh: 0 },
+    fin: { today: ledger(), hist: [] }, loan: 0, fuel: 1, fx: [],
+    ev: { next: 140, cur: null }, missions: {}, ach: keep ? keep.ach : {}, comps: initComps(),
+    prestige: keep ? keep.prestige : { shares: 0, count: 0 }, tut: keep ? 9 : 0, nid: 10, lastSave: Date.now(), lastStage: 1,
+  };
+  for (let i = 0; i < 3; i++) S.board.push(genOrder());
+}
+const nid = p => p + (S.nid++);
+
+/* ---------- derived values ---------- */
+const has = r => !!S.research.done[r];
+function stage() { let s = 1; for (let i = 2; i <= 5; i++) { const d = STAGES[i]; if (S.level >= d.lvl && (!d.research || has(d.research))) s = i; else break; } return s; }
+function levelBonus(l) { return Math.round(250 * Math.pow(1.6, l - 2) / 10) * 10; }
+function xpNeed(l) { return Math.round(120 * Math.pow(1.5, l - 1)); }
+function fx(k) { let m = 1; for (const f of S.fx) if (f.k === k) m *= f.m; return m; }
+function prestigeMult() { return 1 + S.prestige.shares * 0.02; }
+function whCap(w) { const m = w.m; return Math.round((40 + m.shelves * 22) * (1 + (m.size - 1) * 0.65) * (m.mega ? 3 : 1)); }
+function capacity() { return S.warehouses.reduce((a, w) => a + whCap(w), 0); }
+function stored() { let s = 0; for (const o of S.orders) s += o.left; return s; }
+function modSum(k) { let s = 0; for (const w of S.warehouses) s += w.m[k]; return s; }
+function staffOf(r) { return S.staff.filter(e => e.role === r); }
+function lvlSum(r, base = 1, per = 0.3) { let s = 0; for (const e of S.staff) if (e.role === r) s += base * (1 + per * (e.lvl - 1)); return s; }
+function sortRate() {
+  let base = 0.8 + lvlSum('worker', 1, .3) + modSum('conv') * 1.5 + modSum('robot') * 15;
+  const mult = (1 + modSum('conv') * .1) * (1 + modSum('sorter') * .35) * (has('scanner') ? 1.2 : 1) * (1 + modSum('mega') * .5) * fx('sort') * prestigeMult();
+  return base * mult;
+}
+function workerSlots() { return S.warehouses.reduce((a, w) => a + 2 + w.m.size * 2, 0); }
+function parkSlots() { return S.warehouses.reduce((a, w) => a + 1 + w.m.park * 2, 0); }
+function dockCount() { return modSum('docks'); }
+function parkUsed() { return S.vehicles.filter(v => !VT[v.type].nopark).length; }
+function typeLimit(t) { const d = VT[t]; return d.mod ? modSum(d.mod) * d.per : Infinity; }
+function travelMult() { return (has('routes') ? .9 : 1) * (has('ai_routes') ? .85 : 1) * (1 - Math.min(.2, lvlSum('specialist', .02, .5))) * fx('travel'); }
+function researchSpeed() { return (1 + lvlSum('specialist', .15, .5)) * prestigeMult(); }
+function payMult() { return (1 + S.rep / 250) * (has('tracking') ? 1.1 : 1) * (1 + lvlSum('manager', .03, 1)) * prestigeMult() * fx('pay'); }
+function boardMax() { return Math.min(18, 3 + Math.floor(S.level / 1.5) + Math.min(5, Object.keys(S.markets).length - 1)); }
+function spawnInterval() { return Math.max(.6, 7.5 / (1 + Object.keys(S.markets).length * .12 + Object.keys(S.branches).length * .2 + (S.level - 1) * .06 + S.rep / 120)) / fx('spawn'); }
+function driverOf(v) { return v.driver ? S.staff.find(e => e.id === v.driver) : null; }
+function needsDriver(v) { return !VT[v.type].nodriver && !has('autonomous'); }
+function vSpeed(v) { const d = driverOf(v); return VT[v.type].speed * (1 + .1 * v.up.spd) * (d ? 1 + .04 * (d.lvl - 1) : 1); }
+function vCap(v) { return Math.round(VT[v.type].cap * (1 + .2 * v.up.cap)); }
+function vValue(v) { return VT[v.type].price * (1 + .25 * (v.up.spd + v.up.cap)) * .55 * (.4 + .6 * v.cond / 100); }
+function vReady(v) { return v.state === 'idle' && v.cond > 8 && (!needsDriver(v) || !!driverOf(v)); }
+function canServe(v, o) {
+  const t = VT[v.type];
+  if (t.range < o.tier) return false;
+  if (t.minT && o.tier < t.minT) return false;
+  if (o.cold && !t.cold) return false;
+  if (t.mod && !modSum(t.mod)) return false;
+  if (t.coastOnly && !CITY[o.city].coast) return false;
+  return true;
+}
+function nearestBranchDist(cid) { let best = Infinity; for (const b in S.branches) best = Math.min(best, km(CITY[b], CITY[cid])); return best; }
+function orderTier(cid) {
+  if (S.branches[cid]) return 1;
+  const d = nearestBranchDist(cid);
+  const t = d <= 40 ? 1 : d <= 200 ? 2 : d <= 900 ? 3 : d <= 2600 ? 4 : 5;
+  return Math.max(t, CITY[cid].z);
+}
+function geoTier(cid) {
+  if (cid === 'hh') return 1;
+  const d = km(CITY.hh, CITY[cid]);
+  return Math.max(d <= 40 ? 1 : d <= 200 ? 2 : d <= 900 ? 3 : d <= 2600 ? 4 : 5, CITY[cid].z);
+}
+function travelTime(v, dist, tier) {
+  const h = dist / vSpeed(v);
+  let t = (4 + 6 * Math.pow(h, .75)) * travelMult();
+  if (tier >= 5 && v.type !== 'drone') t += 18 * (has('autocustoms') ? .3 : 1);
+  return t;
+}
+function valuation() {
+  let v = S.money - S.loan;
+  for (const x of S.vehicles) v += vValue(x);
+  for (const w of S.warehouses) v += w.inv * .5 + 5000;
+  for (const c in S.markets) v += MARKET_COST[CITY[c].st] * .5;
+  for (const c in S.branches) v += BRANCH_COST[CITY[c].st] * .6;
+  const h = S.fin.hist.slice(-5); const avg = h.length ? h.reduce((a, d) => a + d.profit, 0) / h.length : 0;
+  return Math.max(0, v + Math.max(0, avg) * 40);
+}
+function avgRev() { const h = S.fin.hist.slice(-3); return h.length ? h.reduce((a, d) => a + d.rev, 0) / h.length : 0; }
+function modCost(k, w) { const d = MODS[k]; const l = w.m[k] - (d.from || 0); return Math.round(d.base * Math.pow(d.g, l) * (w.city === 'hh' ? 1 : 1.15)); }
+function vehCost(t) { return VT[t].price; }
+function vUpCost(v, k) { return Math.round(VT[v.type].price * .3 * (v.up[k] + 1)); }
+function repairCost(v) { return Math.round((100 - v.cond) * VT[v.type].price * .0016); }
+
+/* ---------- money ---------- */
+function spend(a, cat) { S.money -= a; if (cat) S.fin.today.exp[cat] += a; else S.fin.today.inv += a; }
+function earn(a) { S.money += a; S.fin.today.rev += a; S.stats.rev += a; }
+function tryBuy(cost, what) { if (S.money < cost) { toast(`Zu wenig Geld für ${what}. Es fehlen ${money(cost - S.money)}.`, 'r'); return false; } spend(cost); return true; }
+function addXp(x) {
+  S.xp += x;
+  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g'); }
+  const st = stage();
+  if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; }
+}
+function addRep(x) { S.rep = clamp(S.rep + x * (x > 0 && has('tracking') ? 1.5 : 1), 0, 100); }
+
+/* ---------- orders ---------- */
+function custName(ct) { return pick(CT[ct].names); }
+function estSpeed(tier) {
+  let best = 0;
+  for (const v of S.vehicles) { const t = VT[v.type]; if (t.range >= tier && (!t.minT || tier >= t.minT)) best = Math.max(best, t.speed); }
+  return best || [0, 70, 70, 75, 80, 800][tier];
+}
+function genOrder(opt = {}) {
+  const cities = Object.keys(S.markets);
+  const cid = opt.city || wpick(cities, c => c === 'hh' ? 3 : (S.branches[c] ? 2 : 1.3));
+  const types = CTYPES.filter(t => S.rep >= t.rep);
+  const ct = opt.ct ? CT[opt.ct] : wpick(types, t => t.w);
+  const tier = orderTier(cid), geo = geoTier(cid);
+  const [a, b] = SIZE[geo];
+  let pk = opt.pk || Math.max(2, Math.round(rnd(a, b) * ct.size * (1 + Math.min(3, (S.level - 1) * .08))));
+  const cold = opt.cold != null ? opt.cold : (has('cold') && ct.cold && Math.random() < .35);
+  const express = opt.express != null ? opt.express : (has('express') && !cold && Math.random() < .2);
+  const dist = tier === 1 ? rnd(4, 35) : (S.branches[cid] ? rnd(4, 35) : nearestBranchDist(cid) * (tier >= 5 ? 1.1 : 1.25));
+  const pay = Math.round((BASE[geo] + pk * RATE[geo]) * (tier < geo ? .75 : 1) * (express ? 1.6 : 1) * (cold ? 1.45 : 1) * ct.pay * payMult() * (opt.payMult || 1));
+  const est = 4 + 6 * Math.pow(dist / estSpeed(tier), .75);
+  let win = 45 + pk / Math.max(.6, sortRate()) * 1.6 + est * 3 + (tier >= 5 ? 30 : 0);
+  if (express) win *= .6;
+  return { id: nid('o'), cust: custName(ct.id), ct: ct.id, city: cid, pk, pay, tier, dist, express, cold, win, exp: S.time + rnd(55, 95), contract: opt.contract || null, special: opt.special || null };
+}
+function canStore(pk) { return stored() + pk <= capacity(); }
+function anyCapableType(o) { return S.vehicles.some(v => canServe(v, o)); }
+function acceptOrder(id, silent) {
+  const i = S.board.findIndex(o => o.id === id); if (i < 0) return false;
+  const o = S.board[i];
+  if (!canStore(o.pk)) { if (!silent) toast(`Lager zu voll: ${o.pk} Pakete passen nicht mehr hinein.`, 'r'); return false; }
+  S.board.splice(i, 1);
+  admit(o);
+  return true;
+}
+function admit(o) {
+  o.state = 'sort'; o.sortLeft = o.pk; o.left = o.pk; o.delivered = 0; o.deadline = S.time + o.win; o.late = false;
+  S.orders.push(o); S.stats.accepted++;
+}
+function cancelFee(o) { return Math.round(o.pay * .25); }
+function cancelOrder(id) {
+  const o = S.orders.find(x => x.id === id); if (!o || o.left < o.pk) return;
+  S.orders = S.orders.filter(x => x !== o);
+  spend(cancelFee(o), 'other'); addRep(-2);
+  if (o.contract) { const c = S.contracts.active.find(c => c.id === o.contract); if (c) c.failed++; }
+  toast(`Auftrag von ${o.cust} storniert. Gebühr ${money(cancelFee(o))}, Ruf −2.`, 'y');
+}
+function bestVehicle(o) {
+  const c = S.vehicles.filter(v => vReady(v) && canServe(v, o));
+  if (!c.length) return null;
+  const fit = c.filter(v => vCap(v) >= o.left);
+  if (fit.length) return fit.sort((a, b) => vCap(a) - vCap(b) || vSpeed(b) - vSpeed(a))[0];
+  return c.sort((a, b) => vCap(b) - vCap(a))[0];
+}
+function dispatchBlock(o) {
+  if (o.state !== 'ready') return 'Wird sortiert';
+  if (!anyCapableType(o)) {
+    if (o.cold) return 'Kühl-LKW nötig';
+    if (o.tier >= 5) return 'Flugzeug oder Schiff nötig';
+    return `Fahrzeug für ${TIER_N[o.tier]} nötig`;
+  }
+  const c = S.vehicles.filter(v => canServe(v, o));
+  if (c.some(v => v.state === 'idle' && v.cond > 8 && needsDriver(v) && !driverOf(v)) && !c.some(v => vReady(v))) return 'Fahrer fehlt';
+  if (c.some(v => v.state === 'idle' && v.cond <= 8) && !c.some(v => vReady(v))) return 'Fahrzeug defekt';
+  if (!c.some(v => vReady(v))) return 'Alle passenden Fahrzeuge unterwegs';
+  return null;
+}
+function dispatch(o, vid, silent) {
+  if (!o || o.state !== 'ready' || o.left <= 0) return false;
+  const v = vid ? S.vehicles.find(x => x.id === vid) : bestVehicle(o);
+  if (!v || !vReady(v) || !canServe(v, o)) { if (!silent) toast(dispatchBlock(o) || 'Kein Fahrzeug verfügbar.', 'y'); return false; }
+  let room = vCap(v); const loads = [];
+  const load = x => { const n = Math.min(x.left, room); if (n <= 0) return; loads.push({ oid: x.id, n }); x.left -= n; room -= n; if (x.left === 0) x.state = 'out'; };
+  load(o);
+  if (room > 0) for (const x of S.orders) { if (room <= 0) break; if (x !== o && x.state === 'ready' && x.left > 0 && x.city === o.city && canServe(v, x)) load(x); }
+  const dist = Math.max(...loads.map(l => S.orders.find(x => x.id === l.oid).dist));
+  const pk = vCap(v) - room;
+  const one = travelTime(v, dist, o.tier);
+  const brk = v.cond < 45 && Math.random() < (45 - v.cond) / 90;
+  spend(dist * 2 * VT[v.type].fuel * S.fuel * fx('fuel'), 'fuel');
+  v.state = 'trip';
+  S.trips.push({ id: nid('t'), vid: v.id, loads, city: o.city, dist, pk, tier: o.tier, phase: 'queue', t: 0, load: 1 + Math.sqrt(pk) * .35, one: one * (brk ? 1.5 : 1), brk });
+  if (brk) toast(`${v.name} hat unterwegs eine Panne – die Fahrt dauert länger.`, 'y');
+  return true;
+}
+
+/* ---------- simulation ---------- */
+function step(dt) {
+  S.time += dt; S.dayT += dt;
+  S.fx = S.fx.filter(f => f.until > S.time);
+  // order board
+  S.spawnT -= dt;
+  if (S.spawnT <= 0) { if (S.board.length < boardMax()) S.board.push(genOrder()); S.spawnT = spawnInterval() * rnd(.7, 1.3); }
+  S.board = S.board.filter(o => o.exp > S.time);
+  // sorting
+  let r = sortRate() * dt;
+  for (const o of S.orders.filter(o => o.state === 'sort').sort((a, b) => a.deadline - b.deadline)) {
+    if (r <= 0) break;
+    if (o.state !== 'sort') continue;
+    const n = Math.min(o.sortLeft, r); o.sortLeft -= n; r -= n; S.stats.sorted += n;
+    if (o.sortLeft <= 1e-6) { o.sortLeft = 0; o.state = 'ready'; }
+  }
+  for (const o of S.orders) if (!o.late && S.time > o.deadline) o.late = true;
+  // trips
+  let loading = S.trips.filter(t => t.phase === 'load').length;
+  const docks = dockCount();
+  for (const tr of S.trips.slice()) {
+    if (tr.phase === 'queue') { if (loading < docks) { tr.phase = 'load'; tr.t = 0; loading++; } continue; }
+    tr.t += dt;
+    if (tr.phase === 'load' && tr.t >= tr.load) { tr.phase = 'out'; tr.t = 0; loading--; }
+    else if (tr.phase === 'out' && tr.t >= tr.one) { deliver(tr); tr.phase = 'back'; tr.t = 0; }
+    else if (tr.phase === 'back' && tr.t >= tr.one) finishTrip(tr);
+  }
+  // automation
+  const disp = lvlSum('dispatcher', 1, .4);
+  if (disp > 0) { S.autoT.disp += dt * disp; while (S.autoT.disp >= 4) { S.autoT.disp -= 4; autoDispatch(); } }
+  const man = lvlSum('manager', 1, .4);
+  if (man > 0) { S.autoT.man += dt * man; while (S.autoT.man >= 5) { S.autoT.man -= 5; autoAccept(); } }
+  // mechanics (the founder does basic upkeep on parked vehicles too)
+  let rep = (0.08 + lvlSum('mechanic', .5, .5)) * dt;
+  if (rep > 0) for (const v of S.vehicles.filter(v => v.state === 'idle' && v.cond < 100).sort((a, b) => a.cond - b.cond)) { const n = Math.min(100 - v.cond, rep); v.cond += n; rep -= n; if (rep <= 0) break; }
+  // research
+  const rc = S.research.cur;
+  if (rc) { rc.t += dt * researchSpeed(); if (rc.t >= RS[rc.id].time) { S.research.done[rc.id] = 1; S.research.cur = null; S.stats.researched++; toast(`Forschung abgeschlossen: ${RS[rc.id].n}`, 'g'); addXp(RS[rc.id].cost / 40); } }
+  // staff experience
+  for (const e of S.staff) if (!e.founder || e.lvl < 5) e.xp = Math.min(staffNeed(e), e.xp + dt);
+  // events
+  if (!S.ev.cur) { S.ev.next -= dt; if (S.ev.next <= 0) { triggerEvent(); S.ev.next = rnd(120, 210); } }
+  if (S.dayT >= DAY) endDay();
+}
+function deliver(tr) {
+  for (const l of tr.loads) {
+    const o = S.orders.find(x => x.id === l.oid); if (!o) continue;
+    o.delivered += l.n;
+    earn(o.pay * l.n / o.pk * (o.late ? .5 : 1));
+    if (o.delivered >= o.pk) completeOrder(o);
+  }
+  const v = S.vehicles.find(x => x.id === tr.vid); const d = v && driverOf(v); if (d) d.xp = Math.min(staffNeed(d), d.xp + 6);
+}
+function completeOrder(o) {
+  S.orders = S.orders.filter(x => x !== o);
+  S.stats.orders++; S.stats.pkgs += o.pk;
+  if (o.express) S.stats.express++; if (o.tier >= 4) S.stats.intl++; if (o.cold) S.stats.cold++;
+  if (o.late) { S.stats.late++; addRep(-1.5); } else addRep(.25 + o.tier * .1 + (o.express ? .2 : 0));
+  addXp(5 + o.pk * .5 * o.tier);
+  if (o.contract) { const c = S.contracts.active.find(c => c.id === o.contract); if (c) { c.done++; if (o.late) c.late++; } }
+  if (o.special) { addRep(3); toast(`Sondermission erfüllt: ${o.cust}`, 'g'); }
+  floatText((o.late ? '' : '+') + money(o.pay * (o.late ? .5 : 1)), o.late ? 'var(--warn)' : 'var(--good)');
+}
+function finishTrip(tr) {
+  S.trips = S.trips.filter(t => t !== tr);
+  const v = S.vehicles.find(x => x.id === tr.vid); if (!v) return;
+  const d = driverOf(v);
+  const w = VT[v.type].wear * (1 + tr.dist / 700) * (has('fleet') ? .75 : 1) * (d ? 1 - .08 * (d.lvl - 1) : 1) * (tr.brk ? 3 : 1);
+  v.cond = Math.max(0, v.cond - w); v.state = 'idle';
+  if (v.cond <= 8) toast(`${v.name} ist defekt und muss repariert werden.`, 'r');
+}
+function autoDispatch() {
+  const ready = S.orders.filter(o => o.state === 'ready' && o.left > 0).sort((a, b) => a.deadline - b.deadline);
+  for (const o of ready) if (bestVehicle(o)) { dispatch(o, null, true); return; }
+}
+function autoAccept() {
+  if (stored() > capacity() * .85) return;
+  const c = S.board.filter(o => canStore(o.pk) && anyCapableType(o)).sort((a, b) => b.pay / b.pk - a.pay / a.pk);
+  if (c[0]) acceptOrder(c[0].id, true);
+}
+function staffNeed(e) { return 80 * e.lvl * e.lvl; }
+
+function endDay() {
+  const L = S.fin.today;
+  for (const e of S.staff) L.exp.salary += e.salary;
+  for (const v of S.vehicles) L.exp.maint += VT[v.type].maint * (has('fleet') ? .85 : 1);
+  for (const w of S.warehouses) {
+    L.exp.rent += (25 + w.m.size * 25) * (w.m.mega ? 3 : 1) * ZONE_RENT[CITY[w.city].z];
+    const m = w.m; L.exp.power += m.conv * 10 + m.sorter * 30 + m.robot * 120 + m.rail * 80 + m.air * 900 + m.port * 1500 + m.mega * 2500;
+  }
+  L.exp.ins += S.vehicles.reduce((a, v) => a + VT[v.type].price * .0015, 0) + S.warehouses.length * 15;
+  L.exp.interest += S.loan * .008;
+  const fixed = L.exp.salary + L.exp.maint + L.exp.rent + L.exp.power + L.exp.ins + L.exp.interest;
+  S.money -= fixed;
+  let total = Object.values(L.exp).reduce((a, b) => a + b, 0);
+  const pre = L.rev - total;
+  if (pre > 0) { const tax = pre * .15; L.exp.tax += tax; S.money -= tax; total += tax; }
+  S.fin.hist.push({ day: S.day, rev: L.rev, exp: total, profit: L.rev - total, inv: L.inv, br: { ...L.exp } });
+  if (S.fin.hist.length > 30) S.fin.hist.shift();
+  S.day++; S.dayT -= DAY; S.fin.today = ledger();
+  S.fuel = clamp(S.fuel * rnd(.96, 1.05), .7, 1.6);
+  for (const c of S.comps) c.v *= 1 + c.g * rnd(.5, 1.5);
+  if (S.day % 2 === 0) S.cand = {};
+  // contracts
+  for (const c of S.contracts.active) {
+    if (c.daysLeft > 0) { c.daysLeft--; spawnContractOrder(c); }
+  }
+  for (const c of S.contracts.active.slice()) {
+    if (c.daysLeft <= 0 && c.done + c.failed >= c.total) settleContract(c);
+  }
+  if (S.day >= S.contracts.refresh) genOffers();
+  const last = S.fin.hist[S.fin.hist.length - 1];
+  toast(`Tag ${last.day} abgeschlossen: ${last.profit >= 0 ? 'Gewinn' : 'Verlust'} ${money(last.profit)}`, last.profit >= 0 ? 'g' : 'r');
+  if (S.money < 0) toast('Dein Konto ist im Minus. Nimm einen Kredit auf oder senke die Kosten.', 'r');
+}
+
+/* ---------- contracts ---------- */
+function genOffers() {
+  const st = stage(); const out = [];
+  const cities = Object.keys(S.markets);
+  const types = CTYPES.filter(t => S.rep + 15 >= t.rep);
+  for (let i = 0; i < 3; i++) {
+    const ct = pick(types); const city = pick(cities); const tier = orderTier(city), geo = geoTier(city);
+    const [a, b] = SIZE[geo];
+    const per = Math.round(rnd(a, b) * ct.size * rnd(1, 1.8) * (1 + st * .15));
+    const days = rint(3, 4 + st);
+    const cold = has('cold') && ct.cold && Math.random() < .3;
+    const rate = RATE[geo] * 1.15 * (cold ? 1.45 : 1) * (tier < geo ? .75 : 1);
+    out.push({ id: nid('k'), cust: custName(ct.id), ct: ct.id, city, per, days, tier, geo, cold, rate, bonus: Math.round(per * days * rate * .35 * payMult()), penalty: Math.round(per * days * rate * .2), minRep: ct.rep });
+  }
+  S.contracts.offers = out; S.contracts.refresh = S.day + 3;
+}
+function contractLimit() { return 1 + stage(); }
+function acceptContract(id) {
+  const k = S.contracts.offers.find(o => o.id === id); if (!k) return;
+  if (S.contracts.active.length >= contractLimit()) return toast(`Maximal ${contractLimit()} Verträge gleichzeitig in dieser Stufe.`, 'y');
+  if (S.rep < k.minRep) return toast(`Dafür brauchst du ${k.minRep} Ruf.`, 'y');
+  S.contracts.offers = S.contracts.offers.filter(o => o !== k);
+  Object.assign(k, { daysLeft: k.days, total: 0, done: 0, late: 0, failed: 0 });
+  S.contracts.active.push(k);
+  k.daysLeft--; spawnContractOrder(k);
+  toast(`Vertrag mit ${k.cust} unterschrieben.`, 'g');
+}
+function spawnContractOrder(c) {
+  const o = genOrder({ city: c.city, ct: c.ct, pk: c.per, cold: c.cold, express: false, contract: c.id });
+  o.pay = Math.round((BASE[c.geo || o.tier] + c.per * c.rate) * payMult());
+  o.win = Math.max(o.win * 1.3, DAY * 1.5);
+  c.total++;
+  if (canStore(o.pk)) { admit(o); }
+  else { c.failed++; toast(`Vertrag ${c.cust}: Tageslieferung verpasst – Lager voll.`, 'r'); addRep(-1); }
+}
+function settleContract(c) {
+  S.contracts.active = S.contracts.active.filter(x => x !== c);
+  const bad = (c.late + c.failed) / Math.max(1, c.total);
+  if (bad <= .2) { earn(c.bonus); addRep(4); S.stats.contracts++; addXp(c.bonus / 20); toast(`Vertrag erfüllt! Bonus ${money(c.bonus)} von ${c.cust}.`, 'g'); }
+  else { spend(c.penalty, 'other'); addRep(-5); toast(`Vertrag mit ${c.cust} nicht erfüllt. Vertragsstrafe ${money(c.penalty)}.`, 'r'); }
+}
+
+/* ---------- staff ---------- */
+function genCand(role) {
+  const lvl = wpick([1, 2, 3], l => [0, 6, 3, 1][l]);
+  const salary = Math.round(ROLES[role].base * (1 + .35 * (lvl - 1)) * rnd(.9, 1.15) * (1 + (stage() - 1) * .15));
+  return { id: nid('c'), role, name: pick(FIRST) + ' ' + pick(LAST), lvl, salary, xp: 0 };
+}
+function candidates(role) { if (!S.cand[role]) S.cand[role] = [genCand(role), genCand(role), genCand(role)]; return S.cand[role]; }
+function hireFee(c) { return c.salary * 2; }
+function hire(cid, role) {
+  const list = candidates(role); const c = list.find(x => x.id === cid); if (!c) return;
+  if (stage() < ROLES[role].st) return toast(`${ROLES[role].pl} gibt es ab Stufe ${ROLES[role].st}.`, 'y');
+  if (role === 'worker' && staffOf('worker').length >= workerSlots()) return toast('Keine freien Arbeitsplätze. Vergrößere die Halle.', 'y');
+  if (!tryBuy(hireFee(c), c.name)) return;
+  S.cand[role] = list.filter(x => x !== c);
+  const e = { id: nid('e'), role, name: c.name, lvl: c.lvl, xp: 0, salary: c.salary };
+  S.staff.push(e); S.stats.hires++;
+  if (role === 'driver') { const v = S.vehicles.find(v => needsDriver(v) && !driverOf(v)); if (v) v.driver = e.id; }
+  toast(`${c.name} eingestellt (${ROLES[role].n}).`, 'g');
+}
+function freeDrivers() { const used = new Set(S.vehicles.map(v => v.driver)); return staffOf('driver').filter(d => !used.has(d.id)); }
+function fire(id) {
+  const e = S.staff.find(x => x.id === id); if (!e || e.founder) return;
+  const v = S.vehicles.find(v => v.driver === id);
+  if (v && v.state !== 'idle') return toast(`${e.name} ist gerade unterwegs.`, 'y');
+  if (v) v.driver = null;
+  S.staff = S.staff.filter(x => x !== e);
+  spend(e.salary, 'salary');
+  toast(`${e.name} wurde entlassen (Abfindung ${money(e.salary)}).`);
+}
+function train(id) { const e = S.staff.find(x => x.id === id); if (!e || e.lvl >= 5) return; const c = Math.round(Math.max(150, e.salary) * 3); if (!tryBuy(c, 'die Schulung')) return; e.xp = Math.min(staffNeed(e), e.xp + staffNeed(e) * .5); toast(`${e.name} hat eine Schulung abgeschlossen.`, 'g'); }
+function promote(id) {
+  const e = S.staff.find(x => x.id === id); if (!e || e.lvl >= 5 || e.xp < staffNeed(e)) return;
+  const c = Math.round(Math.max(200, e.salary) * 4); if (!tryBuy(c, 'die Beförderung')) return;
+  e.lvl++; e.xp = 0; if (!e.founder) e.salary = Math.round(e.salary * 1.3);
+  toast(`${e.name} befördert auf Stufe ${e.lvl}.`, 'g');
+}
+
+/* ---------- vehicles ---------- */
+function buyVehicle(type) {
+  const t = VT[type];
+  if (stage() < t.st) return toast(`${t.n} ab Stufe ${t.st}.`, 'y');
+  if (t.req && !has(t.req)) return toast(`Erforsche zuerst „${RS[t.req].n}“.`, 'y');
+  if (t.mod && S.vehicles.filter(v => v.type === type).length >= typeLimit(type)) return toast(`Baue zuerst ${MODS[t.mod].n} aus.`, 'y');
+  if (!t.nopark && parkUsed() >= parkSlots()) return toast('Kein Stellplatz frei. Baue den Parkplatz aus.', 'y');
+  if (!tryBuy(t.price, t.n)) return;
+  const n = S.vehicles.filter(v => v.type === type).length + 1;
+  const v = { id: nid('v'), type, name: `${t.n} ${n}`, cond: 100, up: { spd: 0, cap: 0 }, driver: null, state: 'idle' };
+  if (needsDriver(v)) { const d = freeDrivers()[0]; if (d) v.driver = d.id; }
+  S.vehicles.push(v);
+  toast(`${t.n} gekauft.${needsDriver(v) && !v.driver ? ' Stelle einen Fahrer ein.' : ''}`, 'g');
+}
+function sellVehicle(id) {
+  const v = S.vehicles.find(x => x.id === id); if (!v) return;
+  if (v.state !== 'idle') return toast('Fahrzeug ist unterwegs.', 'y');
+  if (S.vehicles.length <= 1) return toast('Dein letztes Fahrzeug kannst du nicht verkaufen.', 'y');
+  const val = Math.round(vValue(v)); S.money += val;
+  S.vehicles = S.vehicles.filter(x => x !== v); U.modal = null;
+  toast(`${v.name} für ${money(val)} verkauft.`);
+}
+function repair(id) { const v = S.vehicles.find(x => x.id === id); if (!v || v.state !== 'idle' || v.cond >= 99.5) return; const c = repairCost(v); if (S.money < c) return toast('Zu wenig Geld für die Reparatur.', 'r'); spend(c, 'repair'); v.cond = 100; toast(`${v.name} repariert.`, 'g'); }
+function upgradeVehicle(id, k) { const v = S.vehicles.find(x => x.id === id); if (!v || v.up[k] >= 3) return; if (!tryBuy(vUpCost(v, k), 'das Upgrade')) return; v.up[k]++; toast(`${v.name}: ${k === 'spd' ? 'Motor' : 'Laderaum'} auf Stufe ${v.up[k]}.`, 'g'); }
+function assignDriver(vid, did) {
+  const v = S.vehicles.find(x => x.id === vid); if (!v) return;
+  const other = S.vehicles.find(x => x.driver === did);
+  if (other && other.state !== 'idle') return toast('Dieser Fahrer ist gerade unterwegs.', 'y');
+  if (v.state !== 'idle') return toast('Fahrzeug ist unterwegs.', 'y');
+  if (other) other.driver = null;
+  v.driver = did; toast('Fahrer zugewiesen.', 'g');
+}
+
+/* ---------- warehouses & map ---------- */
+function modLocked(k, w) {
+  const d = MODS[k];
+  if (d.req && !has(d.req)) return `Forschung: ${RS[d.req].n}`;
+  if (d.coast && !CITY[w.city].coast) return 'Nur an Küstenstädten';
+  if (k === 'docks' && w.m.docks >= w.m.size + 1) return 'Größere Halle nötig';
+  return null;
+}
+function upgradeMod(wi, k) {
+  const w = S.warehouses[wi]; const d = MODS[k];
+  if (!w || w.m[k] >= d.max) return;
+  const lock = modLocked(k, w); if (lock) return toast(lock, 'y');
+  const c = modCost(k, w); if (!tryBuy(c, d.n)) return;
+  w.m[k]++; w.inv += c;
+  toast(`${d.n} auf Stufe ${w.m[k]} ausgebaut.`, 'g'); U.flash = k;
+}
+function cityLock(cid) {
+  const c = CITY[cid];
+  if (stage() < c.st) return `Ab Stufe ${c.st}: ${STAGES[c.st].n}`;
+  return null;
+}
+function openMarket(cid) {
+  const c = CITY[cid]; if (S.markets[cid]) return;
+  const l = cityLock(cid); if (l) return toast(l, 'y');
+  if (!tryBuy(MARKET_COST[c.st], `den Markt ${c.n}`)) return;
+  S.markets[cid] = 1; addXp(MARKET_COST[c.st] / 30);
+  toast(`Markt ${c.n} erschlossen. Neue Kunden melden sich.`, 'g');
+}
+function buildBranch(cid) {
+  const c = CITY[cid]; if (S.branches[cid]) return;
+  const l = cityLock(cid); if (l) return toast(l, 'y');
+  if (!S.markets[cid]) return toast('Erschließe zuerst den Markt.', 'y');
+  if (!tryBuy(BRANCH_COST[c.st], `die Niederlassung ${c.n}`)) return;
+  S.branches[cid] = 1;
+  S.warehouses.push({ id: nid('w'), city: cid, name: `Niederlassung ${c.n}`, m: { size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, inv: BRANCH_COST[c.st] * .5 });
+  addXp(BRANCH_COST[c.st] / 25);
+  toast(`Niederlassung ${c.n} eröffnet. Lieferungen dort sind jetzt lokal.`, 'g');
+}
+
+/* ---------- research ---------- */
+function researchState(r) {
+  if (S.research.done[r.id]) return 'done';
+  if (S.research.cur && S.research.cur.id === r.id) return 'cur';
+  if (stage() < r.st) return 'stage';
+  if (r.req.some(q => !S.research.done[q])) return 'req';
+  return 'open';
+}
+function startResearch(id) {
+  const r = RS[id]; if (researchState(r) !== 'open') return;
+  if (S.research.cur) return toast('Es läuft bereits ein Forschungsprojekt.', 'y');
+  if (!tryBuy(r.cost, r.n)) return;
+  S.research.cur = { id, t: 0 }; toast(`Forschung gestartet: ${r.n}`);
+}
+
+/* ---------- finance ---------- */
+function assetValue() { let v = 0; for (const x of S.vehicles) v += vValue(x); for (const w of S.warehouses) v += w.inv * .5 + 5000; for (const c in S.markets) v += MARKET_COST[CITY[c].st] * .5; for (const c in S.branches) v += BRANCH_COST[CITY[c].st] * .6; return v; }
+function maxLoan() { return Math.max(10000, Math.round(assetValue() * .6 / 1000) * 1000); }
+function takeLoan(a) { a = Math.min(a, maxLoan() - S.loan); if (a <= 0) return toast('Kreditrahmen ausgeschöpft.', 'y'); S.loan += a; S.money += a; toast(`Kredit über ${money(a)} aufgenommen. Zins 0,8 % pro Tag.`); }
+function repay(a) { a = Math.min(a, S.loan, Math.max(0, S.money)); if (a <= 0) return toast('Nichts zu tilgen oder zu wenig Geld.', 'y'); S.loan -= a; S.money -= a; toast(`${money(a)} getilgt.`, 'g'); }
+function rankList() { const me = { n: S.name, v: valuation(), me: 1 }; return [...S.comps, me].sort((a, b) => b.v - a.v); }
+function myRank() { return rankList().findIndex(x => x.me) + 1; }
+
+/* ---------- events ---------- */
+const EVENTS = {
+  breakdown: {
+    ok: () => S.trips.some(t => t.phase === 'out'),
+    make() { const t = pick(S.trips.filter(t => t.phase === 'out')); const v = S.vehicles.find(x => x.id === t.vid); return { trip: t.id, name: v.name, cost: Math.round(VT[v.type].price * .03 + 150) }; },
+    title: 'Fahrzeugpanne', text: p => `${p.name} steht mit Motorschaden am Straßenrand. Die Ladung muss weiter.`,
+    choices: p => [
+      { t: `Abschleppen und sofort reparieren`, s: `Kostet ${money(p.cost)}, keine Verzögerung`, f() { spend(p.cost, 'repair'); } },
+      { t: 'Notdürftig selbst flicken', s: 'Kostenlos, Fahrt +60 % und Zustand −15', f() { const t = S.trips.find(x => x.id === p.trip); if (t) { t.one *= 1.6; const v = S.vehicles.find(x => x.id === t.vid); if (v) v.cond = Math.max(0, v.cond - 15); } } },
+    ],
+  },
+  weather: {
+    ok: () => true, make: () => ({ cost: Math.round(200 + avgRev() * .08) }),
+    title: 'Unwetterwarnung', text: () => 'Sturm und Starkregen ziehen über das Land. Fahrten werden langsamer.',
+    choices: p => [
+      { t: 'Normal weiterfahren', s: 'Fahrzeit +30 % für einen Tag', f() { addFx('travel', 1.3, DAY, 'Unwetter'); } },
+      { t: 'Wetter-Routing buchen', s: `Kostet ${money(p.cost)}, Fahrzeit nur +10 %`, f() { spend(p.cost, 'other'); addFx('travel', 1.1, DAY, 'Unwetter'); } },
+    ],
+  },
+  traffic: {
+    ok: () => S.trips.length > 0, make: () => ({ cost: Math.round(80 + avgRev() * .03) }),
+    title: 'Stau auf der A7', text: () => 'Eine Vollsperrung legt den Verkehr rund um Hamburg lahm.',
+    choices: p => [
+      { t: 'Im Stau warten', s: 'Fahrzeit +40 % für 30 Sekunden', f() { addFx('travel', 1.4, 30, 'Stau'); } },
+      { t: 'Mautpflichtige Umfahrung', s: `Kostet ${money(p.cost)}, Fahrzeit +10 %`, f() { spend(p.cost, 'other'); addFx('travel', 1.1, 30, 'Stau'); } },
+    ],
+  },
+  strike: {
+    ok: () => staffOf('worker').length >= 2, make: () => ({ cost: Math.round(lvlSum('worker', 1, 0) * 75 * 2) }),
+    title: 'Warnstreik im Lager', text: () => 'Die Belegschaft fordert eine Prämie und legt die Arbeit nieder.',
+    choices: p => [
+      { t: 'Prämie auszahlen', s: `Kostet ${money(p.cost)}, alle arbeiten weiter`, f() { spend(p.cost, 'salary'); addRep(1); } },
+      { t: 'Streik aussitzen', s: 'Sortiertempo −60 % für einen Tag, Ruf −2', f() { addFx('sort', .4, DAY, 'Streik'); addRep(-2); } },
+    ],
+  },
+  bigorder: {
+    ok: () => true,
+    make() { const o = genOrder({ payMult: 2, express: false }); const pk = Math.min(Math.round(o.pk * 2.5), Math.max(10, Math.round(capacity() * .7))); o.pay = Math.round(o.pay * pk / o.pk); o.pk = pk; o.cust = 'Großauftrag: ' + o.cust; o.win *= 1.8; return { o }; },
+    title: 'Unerwarteter Großauftrag', text: p => `${p.o.cust.replace('Großauftrag: ', '')} braucht kurzfristig ${num(p.o.pk)} Pakete nach ${CITY[p.o.city].n} – zum doppelten Preis.`,
+    choices: p => [
+      { t: 'Annehmen', s: `${money(p.o.pay)} · ${num(p.o.pk)} Pakete · Frist ${dur(p.o.win)}`, f() { if (!canStore(p.o.pk)) return toast('Dafür ist das Lager zu voll.', 'r'); p.o.special = 1; p.o.id = nid('o'); admit(p.o); } },
+      { t: 'Ablehnen', s: 'Keine Auswirkungen', f() {} },
+    ],
+  },
+  fuel: {
+    ok: () => true, make: () => ({ cost: Math.round(300 + avgRev() * .1) }),
+    title: 'Kraftstoffpreise steigen', text: () => 'Eine Raffinerie fällt aus, der Dieselpreis zieht kräftig an.',
+    choices: p => [
+      { t: 'Preise hinnehmen', s: 'Kraftstoff +40 % für zwei Tage', f() { addFx('fuel', 1.4, DAY * 2, 'Kraftstoff teuer'); } },
+      { t: 'Kraftstoff vorab sichern', s: `Kostet ${money(p.cost)}, nur +10 %`, f() { spend(p.cost, 'fuel'); addFx('fuel', 1.1, DAY * 2, 'Kraftstoff teuer'); } },
+    ],
+  },
+  fair: {
+    ok: () => true, make: () => ({ cost: Math.round(500 + avgRev() * .25) }),
+    title: 'Logistik-Messe', text: () => 'Auf der Fachmesse könntest du neue Kunden gewinnen.',
+    choices: p => [
+      { t: 'Stand buchen', s: `Kostet ${money(p.cost)}, Ruf +5 und mehr Aufträge für einen Tag`, f() { spend(p.cost, 'other'); addRep(5); addFx('spawn', 1.6, DAY, 'Messe-Effekt'); } },
+      { t: 'Diesmal nicht', s: 'Keine Auswirkungen', f() {} },
+    ],
+  },
+  pricewar: {
+    ok: () => stage() >= 2, make: () => ({ comp: pick(S.comps).n, cost: Math.round(800 + avgRev() * .3) }),
+    title: 'Preiskampf', text: p => `${p.comp} unterbietet deine Preise in der Region.`,
+    choices: p => [
+      { t: 'Preise senken', s: 'Erlöse −15 % für zwei Tage, Ruf +1', f() { addFx('pay', .85, DAY * 2, 'Preiskampf'); addRep(1); } },
+      { t: 'Werbekampagne starten', s: `Kostet ${money(p.cost)}, keine Einbußen`, f() { spend(p.cost, 'other'); } },
+      { t: 'Ignorieren', s: '40 % weniger neue Aufträge für zwei Tage', f() { addFx('spawn', .6, DAY * 2, 'Kunden wandern ab'); } },
+    ],
+  },
+  gov: {
+    ok: () => stage() >= 2 && S.rep >= 25,
+    make() { const o = genOrder({ payMult: 3, express: false }); o.cust = 'Bundesamt für Katastrophenhilfe'; o.pk = Math.round(o.pk * 1.5); o.pay = Math.round(o.pay * 1.5); o.win *= 1.5; return { o }; },
+    title: 'Regierungsauftrag', text: p => `Die Behörden brauchen Hilfsgüter in ${CITY[p.o.city].n}. Ein zuverlässiger Partner wird gesucht.`,
+    choices: p => [
+      { t: 'Mission übernehmen', s: `${money(p.o.pay)} · ${num(p.o.pk)} Pakete · Ruf +3 bei Erfolg`, f() { if (!canStore(p.o.pk)) return toast('Dafür ist das Lager zu voll.', 'r'); p.o.special = 1; p.o.id = nid('o'); admit(p.o); } },
+      { t: 'Ablehnen', s: 'Ruf −1', f() { addRep(-1); } },
+    ],
+  },
+  opportunity: {
+    ok: () => S.markets && Object.keys(S.markets).length > 1, make: () => ({ cost: Math.round(1000 + avgRev() * .4) }),
+    title: 'Neue Geschäftschance', text: () => 'Ein Händlerverband sucht einen festen Logistikpartner und bietet einen Rahmenvertrag an.',
+    choices: p => [
+      { t: 'Verhandeln', s: `Kostet ${money(p.cost)}, neue Vertragsangebote und Ruf +2`, f() { spend(p.cost, 'other'); genOffers(); addRep(2); } },
+      { t: 'Ablehnen', s: 'Keine Auswirkungen', f() {} },
+    ],
+  },
+};
+function addFx(k, m, d, label) { S.fx.push({ k, m, until: S.time + d, label }); }
+function triggerEvent() {
+  const ids = Object.keys(EVENTS).filter(k => EVENTS[k].ok());
+  if (!ids.length) return;
+  const id = pick(ids);
+  S.ev.cur = { id, p: EVENTS[id].make() };
+  if (!U.modal) U.modal = { type: 'event' };
+}
+function resolveEvent(i) {
+  const c = S.ev.cur; if (!c) return;
+  const ch = EVENTS[c.id].choices(c.p)[i]; S.ev.cur = null; U.modal = null;
+  if (ch) ch.f();
+}
+
+/* ---------- missions & achievements ---------- */
+function dayKey(d = new Date()) { return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function weekKey() { const d = new Date(); const day = (d.getDay() + 6) % 7; d.setDate(d.getDate() - day); return dayKey(d); }
+const MT = [
+  { k: 'orders', t: n => `${num(n)} Aufträge ausliefern`, n: (l, w) => (8 + l * 2) * w },
+  { k: 'rev', t: n => `${money(n)} Umsatz erzielen`, n: (l, w) => Math.round(Math.max(1500, avgRev() * 1.5) * w / 100) * 100 },
+  { k: 'sorted', t: n => `${num(n)} Pakete sortieren`, n: (l, w) => Math.round(Math.max(150, avgRev() / 8) * w / 10) * 10 },
+  { k: 'express', t: n => `${num(n)} Express-Aufträge ausliefern`, n: (l, w) => 4 * w, ok: () => has('express') },
+  { k: 'intl', t: n => `${num(n)} internationale Aufträge ausliefern`, n: (l, w) => 3 * w, ok: () => stage() >= 4 },
+  { k: 'cold', t: n => `${num(n)} Kühlaufträge ausliefern`, n: (l, w) => 3 * w, ok: () => has('cold') },
+  { k: 'hires', t: n => `${num(n)} Mitarbeitende einstellen`, n: (l, w) => w > 1 ? 4 : 1 },
+  { k: 'contracts', t: n => `${num(n)} Verträge erfüllen`, n: (l, w) => w > 1 ? 2 : 1, weekly: 1 },
+  { k: 'researched', t: n => `${num(n)} Technologien erforschen`, n: (l, w) => w > 1 ? 2 : 1, weekly: 1 },
+];
+function makeMissions(weekly) {
+  const w = weekly ? 5 : 1;
+  const pool = MT.filter(m => (!m.ok || m.ok()) && (weekly || !m.weekly));
+  const out = []; const used = new Set();
+  while (out.length < 3 && used.size < pool.length) {
+    const m = pick(pool); if (used.has(m.k)) continue; used.add(m.k);
+    const n = Math.max(1, m.n(S.level, w));
+    out.push({ k: m.k, n, base: S.stats[m.k], reward: Math.round(Math.max(400, avgRev() * .6) * w / 10) * 10, xp: Math.round(xpNeed(S.level) * (weekly ? .45 : .15)), claimed: 0 });
+  }
+  return out;
+}
+function ensureMissions() {
+  const M = S.missions;
+  if (M.dk !== dayKey()) { M.dk = dayKey(); M.daily = makeMissions(false); }
+  if (M.wk !== weekKey()) { M.wk = weekKey(); M.weekly = makeMissions(true); }
+}
+function mProg(m) { return Math.min(m.n, S.stats[m.k] - m.base); }
+function claimMission(kind, i) {
+  const m = S.missions[kind][i]; if (!m || m.claimed || mProg(m) < m.n) return;
+  m.claimed = 1; S.money += m.reward; addXp(m.xp); toast(`Belohnung: ${money(m.reward)} und ${num(m.xp)} XP`, 'g');
+}
+const ACH = [
+  { id: 'd100', n: 'Erste Hundert', d: '100 Aufträge ausliefern', v: () => S.stats.orders, g: 100, r: 1500 },
+  { id: 'm10k', n: 'Die ersten 10.000', d: '10.000 € Umsatz insgesamt', v: () => S.stats.rev, g: 1e4, r: 1500 },
+  { id: 'v10', n: 'Flotte', d: '10 Fahrzeuge besitzen', v: () => S.vehicles.length, g: 10, r: 8000 },
+  { id: 'k1', n: 'Handschlag', d: 'Ersten Liefervertrag erfüllen', v: () => S.stats.contracts, g: 1, r: 3000 },
+  { id: 'r1', n: 'Tüftler', d: 'Erste Technologie erforschen', v: () => S.stats.researched, g: 1, r: 1000 },
+  { id: 'd1k', n: 'Tausendsassa', d: '1.000 Aufträge ausliefern', v: () => S.stats.orders, g: 1000, r: 40000 },
+  { id: 'e50', n: 'Großer Arbeitgeber', d: '50 Mitarbeitende beschäftigen', v: () => S.staff.length - 1, g: 50, r: 150000 },
+  { id: 'm1m', n: 'Umsatzmillionär', d: '1 Mio. € Umsatz insgesamt', v: () => S.stats.rev, g: 1e6, r: 50000 },
+  { id: 'p100k', n: 'Paketlawine', d: '100.000 Pakete ausliefern', v: () => S.stats.pkgs, g: 1e5, r: 200000 },
+  { id: 'intl', n: 'Grenzenlos', d: 'Erste internationale Niederlassung eröffnen', v: () => Object.keys(S.branches).filter(c => CITY[c].z >= 4).length, g: 1, r: 250000 },
+  { id: 'c10', n: 'Weltenbummler', d: 'In 10 Ländern aktiv sein', v: () => new Set(Object.keys(S.markets).map(c => CITY[c].c)).size, g: 10, r: 1e6 },
+  { id: 'v50', n: 'Armada', d: '50 Fahrzeuge besitzen', v: () => S.vehicles.length, g: 50, r: 500000 },
+  { id: 'k10', n: 'Verlässlicher Partner', d: '10 Verträge erfüllen', v: () => S.stats.contracts, g: 10, r: 200000 },
+  { id: 'p1m', n: 'Eine Million Pakete', d: '1.000.000 Pakete ausliefern', v: () => S.stats.pkgs, g: 1e6, r: 3e6 },
+  { id: 's5', n: 'Imperium', d: 'Stufe 5 erreichen', v: () => stage(), g: 5, r: 2e6 },
+  { id: 'rall', n: 'Technologieführer', d: 'Alle Technologien erforschen', v: () => S.stats.researched, g: RESEARCH.length, r: 5e6 },
+  { id: 'top', n: 'Weltmarktführer', d: 'Platz 1 der Logistik-Rangliste', v: () => 6 - myRank(), g: 5, r: 1e7 },
+  { id: 'ipo', n: 'Börsengang', d: 'Einen Neustart mit Aktien wagen', v: () => S.prestige.count, g: 1, r: 0 },
+];
+function claimAch(id) { const a = ACH.find(x => x.id === id); if (!a || S.ach[id] || a.v() < a.g) return; S.ach[id] = 1; S.money += a.r; toast(`Erfolg freigeschaltet: ${a.n}${a.r ? ' · ' + money(a.r) : ''}`, 'g'); }
+function claimableCount() {
+  ensureMissions(); let n = 0;
+  for (const k of ['daily', 'weekly']) for (const m of S.missions[k]) if (!m.claimed && mProg(m) >= m.n) n++;
+  for (const a of ACH) if (!S.ach[a.id] && a.v() >= a.g) n++;
+  return n;
+}
+
+/* ---------- prestige ---------- */
+function prestigeShares() { return Math.floor(10 * Math.sqrt(valuation() / 1e7)); }
+function canPrestige() { return stage() >= 5 || valuation() >= 5e7; }
+function doPrestige() {
+  if (!canPrestige()) return;
+  const add = prestigeShares();
+  const keep = { name: S.name, ach: S.ach, prestige: { shares: S.prestige.shares + add, count: S.prestige.count + 1 } };
+  newGame(keep); U.modal = null; U.tab = 'hq'; save();
+  toast(`Börsengang erfolgreich! ${add} Aktienpunkte: dauerhaft +${add * 2} % auf Erlöse und Tempo.`, 'g');
+}
+
+/* ---------- save / load ---------- */
+function save() { try { S.lastSave = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); return true; } catch (e) { return false; } }
+function migrate(o) {
+  const base = (newGame(), S);
+  const m = Object.assign({}, base, o);
+  m.stats = Object.assign({}, base.stats, o.stats || {});
+  m.fin = Object.assign({}, base.fin, o.fin || {});
+  m.fin.today = Object.assign(ledger(), m.fin.today || {}); m.fin.today.exp = Object.assign(ledger().exp, (o.fin && o.fin.today && o.fin.today.exp) || {});
+  m.research = Object.assign({ done: {}, cur: null }, o.research || {});
+  m.contracts = Object.assign({ offers: [], active: [], refresh: 0 }, o.contracts || {});
+  m.prestige = Object.assign({ shares: 0, count: 0 }, o.prestige || {});
+  for (const w of m.warehouses) w.m = Object.assign({ size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, w.m);
+  return m;
+}
+function load() {
+  let raw = null; try { raw = localStorage.getItem(SAVE_KEY); } catch (e) {}
+  if (!raw) { newGame(); return false; }
+  try { S = migrate(JSON.parse(raw)); return true; } catch (e) { newGame(); return false; }
+}
+function offlineProgress() {
+  const el = Math.min(8 * 3600, (Date.now() - (S.lastSave || Date.now())) / 1000);
+  if (el < 90) return;
+  const h = S.fin.hist.slice(-3);
+  const rate = h.length ? Math.max(0, h.reduce((a, d) => a + d.profit, 0) / h.length / DAY) : 0;
+  const eff = .15 + (staffOf('dispatcher').length ? .15 : 0) + (staffOf('manager').length ? .2 : 0);
+  const gain = Math.round(rate * el * eff);
+  let rmsg = '';
+  if (S.research.cur) { const r = RS[S.research.cur.id]; S.research.cur.t += el * researchSpeed(); if (S.research.cur.t >= r.time) { S.research.done[r.id] = 1; S.research.cur = null; S.stats.researched++; rmsg = r.n; } }
+  S.money += gain;
+  for (const v of S.vehicles) if (v.state === 'idle') v.cond = Math.min(100, v.cond + lvlSum('mechanic', .5, .5) * el / Math.max(1, S.vehicles.length));
+  U.modal = { type: 'offline', el, gain, eff, rmsg };
+}
+function exportSave() { try { return btoa(unescape(encodeURIComponent(JSON.stringify(S)))); } catch (e) { return ''; } }
+function importSave(str) {
+  try { const o = JSON.parse(decodeURIComponent(escape(atob(str.trim())))); if (!o || !o.warehouses) throw 0; S = migrate(o); save(); U.modal = null; toast('Spielstand geladen.', 'g'); }
+  catch (e) { toast('Der Code ist kein gültiger Spielstand.', 'r'); }
+}
+
+/* =====================================================================
+   SCENE RENDERER – isometric warehouse
+   ===================================================================== */
+const SC = { trees: null };
+function shade(hex, f) { const n = parseInt(hex.slice(1), 16); let r = n >> 16, g = (n >> 8) & 255, b = n & 255; r = clamp(Math.round(r * f), 0, 255); g = clamp(Math.round(g * f), 0, 255); b = clamp(Math.round(b * f), 0, 255); return `rgb(${r},${g},${b})`; }
+function drawScene(cv, wh, T) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const m = wh.m;
+  const bw = 6 + m.size * 1.1, bd = 4.4 + m.size * .7, wallH = 1.15;
+  const roadY = bd + 6.2, px0 = bw + 1.4, pw = 7;
+  const fx0 = -.6, fx1 = bw + 8.6, fy0 = -.6, fy1 = bd + 3.5;
+  const spanX = (fx1 - fy0) - (fx0 - fy1), spanY = ((fx1 + fy1) - (fx0 + fy0)) * .5 + 1.6;
+  const k = Math.min(W / spanX * 1.3, H / spanY * 1.05);
+  const cx = ((fx1 - fy0) + (fx0 - fy1)) / 2, cy = ((fx1 + fy1) + (fx0 + fy0)) / 4;
+  const ox = W / 2 - cx * k, oy = H / 2 - cy * k + k * .6;
+  const P = (x, y, z = 0) => [ox + (x - y) * k, oy + (x + y) * k * .5 - z * k * .85];
+  const poly = (pts, fill, stroke) => { g.beginPath(); pts.forEach((p, i) => i ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1])); g.closePath(); g.fillStyle = fill; g.fill(); if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1; g.stroke(); } };
+  const quad = (x0, y0, x1, y1, z, fill, stroke) => poly([P(x0, y0, z), P(x1, y0, z), P(x1, y1, z), P(x0, y1, z)], fill, stroke);
+  const box = (x, y, z, dx, dy, dz, col) => {
+    poly([P(x, y + dy, z), P(x + dx, y + dy, z), P(x + dx, y + dy, z + dz), P(x, y + dy, z + dz)], shade(col, .78));
+    poly([P(x + dx, y, z), P(x + dx, y + dy, z), P(x + dx, y + dy, z + dz), P(x + dx, y, z + dz)], shade(col, .62));
+    poly([P(x, y, z + dz), P(x + dx, y, z + dz), P(x + dx, y + dy, z + dz), P(x, y + dy, z + dz)], col);
+  };
+  // ground
+  g.fillStyle = '#3c6a52'; g.fillRect(0, 0, W, H);
+  quad(-40, -40, 60, 60, 0, '#3c6a52');
+  const port = m.port > 0;
+  if (port) quad(-40, roadY + 3.2, 60, 60, 0, '#1f5d86');
+  quad(fx0 - .5, fy0 - .5, fx1 + .5, roadY - .6, 0, '#4a596d');
+  // road
+  quad(-40, roadY - .6, 60, roadY + 1.6, 0, '#2c3746');
+  for (let x = -40; x < 60; x += 1.6) quad(x, roadY + .45, x + .8, roadY + .55, 0, '#d9e1ea');
+  quad(-40, roadY - .62, 60, roadY - .55, 0, '#e8edf2'); quad(-40, roadY + 1.55, 60, roadY + 1.62, 0, '#e8edf2');
+  // access lane to road
+  quad(px0 - 1.2, 0, px0 - .2, roadY - .6, 0, '#55657a');
+  if (port) { quad(-40, roadY + 1.6, 60, roadY + 3.2, 0, '#8d99a6'); for (let x = -20; x < 40; x += 1.2) box(x, roadY + 3.05, 0, .25, .25, .25, '#2c3746'); }
+  // rail
+  if (m.rail) { quad(-40, -2.6, 60, -1.7, 0, '#6b5d52'); for (let x = -40; x < 60; x += .5) quad(x, -2.6, x + .15, -1.7, 0, '#4a3f37'); quad(-40, -2.4, 60, -2.33, 0, '#c9d2dc'); quad(-40, -1.97, 60, -1.9, 0, '#c9d2dc'); }
+  // parking
+  quad(px0, .2, px0 + pw, bd - .2, 0, '#566679');
+  for (let i = 0; i <= 5; i++) quad(px0 + i * 1.4, .4, px0 + i * 1.4 + .06, 2.4, 0, '#dfe6ee');
+  // trees (behind)
+  if (!SC.trees) { SC.trees = []; for (let i = 0; i < 40; i++) SC.trees.push(Math.random()); }
+  const tree = (x, y, s = 1) => { box(x - .06, y - .06, 0, .12, .12, .5 * s, '#5b4636'); const [tx, ty] = P(x, y, .9 * s); g.fillStyle = '#2f7a4f'; g.beginPath(); g.ellipse(tx, ty, .5 * k * s, .45 * k * s, 0, 0, 7); g.fill(); g.fillStyle = '#3f9862'; g.beginPath(); g.ellipse(tx - .12 * k, ty - .1 * k, .3 * k * s, .26 * k * s, 0, 0, 7); g.fill(); };
+  for (let x = -3; x < fx1 + 4; x += 1.7) tree(x, m.rail ? -3.4 : -2.4, .8 + SC.trees[Math.abs(Math.round(x * 3)) % 40] * .4);
+  for (let y = -1; y < roadY - 1; y += 1.7) tree(-2.6, y, .8 + SC.trees[Math.abs(Math.round(y * 5)) % 40] * .4);
+  // train on rail
+  const trains = S.vehicles.filter(v => v.type === 'train');
+  if (m.rail && trains.length) { const idle = trains.some(v => v.state === 'idle'); const off = idle ? 0 : ((T * 3) % 40) - 20; for (let i = 0; i < 6; i++) box(-2 + i * 2.1 + off, -2.45, .15, 1.9, .7, .75, i === 0 ? '#c0392b' : ['#ff7a1a', '#2e8c88', '#e8edf3'][i % 3]); }
+  // airplane on apron
+  if (m.air) {
+    const ax = fx1 + 1.5, ay = 1.5; quad(ax - 2, ay - 2.5, ax + 4, ay + 3, 0, '#5f6d7e');
+    box(ax, ay, .3, 3.2, .55, .55, '#eef2f7');
+    poly([P(ax + 1.2, ay - 1.6, .62), P(ax + 2, ay - 1.6, .62), P(ax + 2.1, ay + 2.2, .62), P(ax + 1.3, ay + 2.2, .62)], '#d4dce6');
+    box(ax + 2.9, ay + .1, .8, .3, .35, .6, '#ff7a1a');
+  }
+  // building floor + back walls
+  quad(0, 0, bw, bd, .02, '#c3ccd6');
+  for (let x = 1; x < bw; x += 1) quad(x, 0, x + .02, bd, .025, '#b5bfca');
+  poly([P(0, 0, 0), P(bw, 0, 0), P(bw, 0, wallH), P(0, 0, wallH)], '#9fb0c2');
+  poly([P(0, 0, 0), P(0, bd, 0), P(0, bd, wallH), P(0, 0, wallH)], '#8da0b5');
+  // interior objects (depth-sorted)
+  const items = [];
+  const nShelf = 2 + m.shelves * 2;
+  let si = 0;
+  const shelfRows = Math.max(1, Math.floor((bd * .5 - .3) / .95));
+  for (let r = 0; r < shelfRows && si < nShelf; r++) for (let x = .5; x + 1.5 < bw - .3 && si < nShelf; x += 1.9) { const sx = x, sy = .5 + r * .95; items.push({ d: sx + sy, f: () => { box(sx, sy, 0, 1.5, .42, .9, '#5c6f8a'); for (let b = 0; b < 3; b++) box(sx + .1 + b * .48, sy + .06, .9, .38, .3, .22, ['#d9a066', '#c98d52', '#e3b07a'][b]); } }); si++; }
+  const cy2 = bd * .62;
+  if (m.conv) {
+    items.push({ d: 0 + cy2 + bw / 2, f: () => {
+      box(.5, cy2, .0, bw - 1, .38, .34, '#334256');
+      const L = bw - 1.2, n = 3 + m.conv * 3;
+      for (let i = 0; i < n; i++) { const p = ((T * (.8 + m.conv * .2)) + i * L / n) % L; box(.6 + p, cy2 + .07, .34, .26, .24, .2, '#d9a066'); }
+      if (m.conv >= 2) { box(bw * .3, cy2 + .38, 0, .38, bd - cy2 - .6, .3, '#334256'); for (let i = 0; i < 3; i++) { const p = ((T * .9) + i * 1.1) % (bd - cy2 - .8); box(bw * .3 + .07, cy2 + .45 + p, .3, .24, .24, .2, '#c98d52'); } }
+      if (m.conv >= 4) box(bw * .7, cy2 + .38, 0, .38, bd - cy2 - .6, .3, '#334256');
+    } });
+  }
+  if (m.sorter) items.push({ d: bw / 2 + cy2 + .5, f: () => { box(bw / 2 - .5, cy2 - .35, 0, 1.1, 1.05, .85 + m.sorter * .05, '#2e8c88'); box(bw / 2 - .35, cy2 - .2, .9, .8, .75, .12, '#ff7a1a'); if (Math.sin(T * 6) > 0) box(bw / 2 + .2, cy2 - .1, 1.02, .12, .12, .12, '#ffef8a'); } });
+  // staging pallets near docks
+  const fill = capacity() ? stored() / capacity() : 0;
+  const nPal = Math.round(clamp(fill, 0, 1) * Math.floor(bw / .9));
+  for (let i = 0; i < nPal; i++) { const x = .4 + i * .85, y = bd - .9; items.push({ d: x + y, f: () => { box(x, y, 0, .7, .55, .08, '#a57a4a'); box(x + .05, y + .05, .08, .6, .45, .32 + (i % 3) * .12, '#d9a066'); } }); }
+  // robots
+  for (let i = 0; i < m.robot * 3; i++) { const ph = T * .5 + i * 2.1; const x = .6 + ((Math.sin(ph) + 1) / 2) * (bw - 1.5), y = bd * .5 + .05 + (i % 2) * .3; items.push({ d: x + y, f: () => { box(x, y, 0, .32, .32, .18, '#ff7a1a'); box(x + .08, y + .08, .18, .16, .16, .06, '#1a2333'); } }); }
+  // workers
+  const nW = Math.min(14, staffOf('worker').length + 1);
+  for (let i = 0; i < nW; i++) { const ph = T * (.25 + (i % 4) * .06) + i * 1.7; const x = .7 + ((Math.sin(ph) + 1) / 2) * (bw - 1.6), y = bd * .55 + ((Math.cos(ph * 1.3 + i) + 1) / 2) * (bd * .4 - .5); items.push({ d: x + y, f: () => { const [a, b] = P(x, y, .0); g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(a, b, .14 * k, .07 * k, 0, 0, 7); g.fill(); const [p, q] = P(x, y, .45); g.fillStyle = '#ff8a2a'; g.fillRect(p - .08 * k, q, .16 * k, .32 * k); g.fillStyle = '#2a3a52'; g.fillRect(p - .07 * k, q + .3 * k, .14 * k, .12 * k); g.fillStyle = '#f2c9a0'; g.beginPath(); g.arc(p, q - .06 * k, .07 * k, 0, 7); g.fill(); } }); }
+  // forklift
+  if (m.docks >= 2) { const s = (Math.sin(T * .6) + 1) / 2; const x = 1 + s * (bw - 3), y = bd - 1.6; items.push({ d: x + y, f: () => { box(x, y, 0, .55, .4, .35, '#ffb21a'); box(x + .55, y + .05, .0, .12, .3, .7, '#2a3a52'); box(x + .08, y + .05, .35, .3, .3, .3, '#2a3a52'); } }); }
+  items.sort((a, b) => a.d - b.d).forEach(i => i.f());
+  // front walls (outer facade) with dock doors
+  const nd = Math.min(m.docks, Math.floor((bw - .6) / 1.2));
+  const docksX = []; for (let i = 0; i < nd; i++) docksX.push(.7 + i * ((bw - 1.4) / Math.max(1, nd)) + .1);
+  poly([P(0, bd, 0), P(bw, bd, 0), P(bw, bd, wallH), P(0, bd, wallH)], '#2b7e85');
+  poly([P(0, bd, wallH - .2), P(bw, bd, wallH - .2), P(bw, bd, wallH), P(0, bd, wallH)], '#e9eef3');
+  for (const dx of docksX) poly([P(dx, bd, 0), P(dx + .8, bd, 0), P(dx + .8, bd, .72), P(dx, bd, .72)], '#1d2a3a');
+  poly([P(bw, 0, 0), P(bw, bd, 0), P(bw, bd, wallH), P(bw, 0, wallH)], '#236b72');
+  poly([P(bw, 0, wallH - .2), P(bw, bd, wallH - .2), P(bw, bd, wallH), P(bw, 0, wallH)], '#d5dde6');
+  // wall top caps
+  const cap = (pts) => poly(pts, '#f3f6f9');
+  cap([P(0, 0, wallH), P(bw, 0, wallH), P(bw, .12, wallH), P(.12, .12, wallH), P(.12, bd, wallH), P(0, bd, wallH)]);
+  if (m.mega) { const [a, b] = P(bw / 2, bd, wallH + .5); g.fillStyle = '#ff7a1a'; g.font = `800 ${Math.round(k * .55)}px ${getComputedStyle(document.body).getPropertyValue('--f-disp') || 'sans-serif'}`; g.textAlign = 'center'; g.fillText('MEGA-HUB', a, b); }
+  // outdoor vehicles
+  const outs = [];
+  const vehAt = (v, x, y, dir) => outs.push({ d: x + y, f: () => drawVeh(v, x, y, dir) });
+  const trips = S.trips.filter(t => S.vehicles.find(v => v.id === t.vid && !VT[v.type].nopark));
+  const atDock = trips.filter(t => t.phase === 'load' || t.phase === 'queue');
+  atDock.forEach((t, i) => { const v = S.vehicles.find(x => x.id === t.vid); if (i < nd) vehAt(v, docksX[i] + .05, bd + .15, 'y'); else vehAt(v, px0 - 1.1, bd + 1 + (i - nd) * 1.6, 'y'); });
+  for (const t of trips) {
+    const v = S.vehicles.find(x => x.id === t.vid); const len = VT[v.type].len;
+    let s = -1, back = false;
+    if (t.phase === 'out' && t.t < 4) s = t.t / 4;
+    if (t.phase === 'back' && t.one - t.t < 4) { s = (t.one - t.t) / 4; back = true; }
+    if (s < 0) continue;
+    if (s < .35) { const y = back ? (bd - .5 - len) + (roadY - bd) * (s / .35) : bd + .2 + (roadY - .3 - bd - len) * (s / .35); vehAt(v, back ? px0 - 1.05 : docksX[0] || 1, y, 'y'); }
+    else { const x = (back ? px0 - 1.1 : (docksX[0] || 1)) + (s - .35) / .65 * 22; vehAt(v, x, roadY + (back ? .7 : -.35), 'x'); }
+  }
+  const parked = S.vehicles.filter(v => v.state === 'idle' && !VT[v.type].nopark);
+  parked.slice(0, 15).forEach((v, i) => { const col = i % 5, row = Math.floor(i / 5); vehAt(v, px0 + .25 + col * 1.4, .45 + row * 3.3 * (bd > 6 ? 1 : .8), 'y'); });
+  // container yard + ship if port
+  if (port) {
+    for (let i = 0; i < 10; i++) { const x = px0 + (i % 5) * 1.35, y = bd + .6 + Math.floor(i / 5) * .7; outs.push({ d: x + y, f: () => box(x, y, 0, 1.2, .55, .5 + (i % 3) * .5, ['#ff7a1a', '#2e8c88', '#e8edf3', '#d0632a'][i % 4]) }); }
+    const ships = S.vehicles.filter(v => v.type === 'ship'); const docked = ships.some(v => v.state === 'idle');
+    if (ships.length) { const sx = docked ? -1 : -1 + ((T * 1.2) % 30); outs.push({ d: 999, f: () => { box(sx, roadY + 3.6, 0, 9, 1.6, .55, '#20324a'); box(sx + .3, roadY + 3.75, .55, 8, 1.3, .1, '#b8433a'); for (let i = 0; i < 6; i++) box(sx + .6 + i * 1.15, roadY + 3.8, .65, 1, 1.2, .45 + (i % 2) * .4, ['#ff7a1a', '#2e8c88', '#e8edf3'][i % 3]); box(sx + 7.6, roadY + 3.8, .55, .9, 1.2, 1.3, '#eef2f7'); } }); }
+  }
+  // front trees
+  if (!port) for (let x = -3; x < fx1 + 4; x += 1.9) outs.push({ d: x + roadY + 2.4, f: () => tree(x, roadY + 2.4, .9) });
+  // drones
+  const drones = S.trips.filter(t => S.vehicles.find(v => v.id === t.vid && v.type === 'drone'));
+  drones.slice(0, 6).forEach((t, i) => { const p = t.phase === 'out' ? t.t / t.one : t.phase === 'back' ? 1 - t.t / t.one : 0; outs.push({ d: 998, f: () => { const [a, b] = P(bw / 2 + p * 10 + i, bd / 2 - p * 6, 2.2 + Math.sin(T * 4 + i) * .1); g.fillStyle = '#e8edf3'; g.fillRect(a - .25 * k, b - .05 * k, .5 * k, .1 * k); g.fillStyle = '#ff7a1a'; g.fillRect(a - .08 * k, b - .02 * k, .16 * k, .16 * k); } }); });
+  outs.sort((a, b) => a.d - b.d).forEach(o => o.f());
+
+  function drawVeh(v, x, y, dir) {
+    const t = VT[v.type]; const L = t.len, Wd = .62, Hh = t.h;
+    if (v.type === 'drone') return;
+    if (dir === 'y') { box(x, y + .55, .15, Wd, L - .55, Hh, t.col); box(x + .04, y, .15, Wd - .08, .55, Hh * .72, t.acc); box(x + .1, y + .02, .45, Wd - .2, .02, Hh * .3, '#9fd3ff'); }
+    else { box(x, y, .15, L - .55, Wd, Hh, t.col); box(x + L - .55, y + .04, .15, .55, Wd - .08, Hh * .72, t.acc); }
+    if (v.type === 'reefer') { if (dir === 'y') box(x + .1, y + .6, Hh + .15, Wd - .2, .3, .12, '#4aa3ff'); else box(x + .1, y + .1, Hh + .15, .3, Wd - .2, .12, '#4aa3ff'); }
+  }
+}
+
+/* =====================================================================
+   MAP RENDERER – low-poly world, pan & pinch zoom
+   ===================================================================== */
+const LAND = [
+  [[-168, 65], [-162, 70], [-140, 70], [-120, 72], [-95, 72], [-80, 73], [-62, 66], [-64, 60], [-56, 52], [-66, 45], [-70, 42], [-76, 38], [-76, 35], [-81, 31], [-80, 26], [-82, 28], [-84, 30], [-90, 30], [-97, 27], [-97, 22], [-92, 18], [-88, 21], [-87, 16], [-83, 10], [-79, 9], [-80, 7], [-85, 11], [-92, 15], [-105, 20], [-110, 24], [-112, 30], [-115, 30], [-110, 23], [-117, 32], [-121, 36], [-124, 41], [-124, 48], [-130, 54], [-140, 60], [-150, 60], [-160, 58], [-165, 62]],
+  [[-73, 78], [-60, 82], [-30, 83], [-20, 76], [-22, 70], [-40, 65], [-45, 60], [-52, 64], [-55, 70], [-70, 76]],
+  [[-79, 9], [-75, 11], [-63, 10], [-52, 5], [-50, 0], [-44, -2], [-35, -6], [-39, -14], [-41, -22], [-48, -26], [-53, -34], [-58, -38], [-65, -42], [-67, -50], [-70, -55], [-74, -50], [-74, -40], [-72, -30], [-70, -18], [-76, -14], [-81, -5], [-80, 0], [-77, 4]],
+  [[-9, 43.5], [-9, 37], [-6, 36], [-2, 37], [0, 39], [3, 42], [6, 43], [9, 44], [12, 42], [16, 38], [18, 40], [13, 45.5], [16, 44], [19, 42], [20, 40], [22, 37], [24, 38], [23, 41], [26, 40.5], [27, 37], [30, 36.3], [36, 36], [35, 33], [34, 31], [35, 28], [39, 22], [43, 13], [45, 13], [52, 16], [57, 19], [59, 22], [56, 26], [52, 24], [50, 27], [48, 30], [51, 28], [56, 27], [61, 25], [67, 25], [70, 21], [73, 16], [77, 8], [80, 10], [80, 15], [87, 21], [92, 22], [94, 17], [98, 16], [98, 8], [100, 4], [104, 1.3], [103, 6], [101, 13], [105, 9], [109, 12], [109, 17], [106, 20], [109, 22], [115, 23], [120, 27], [122, 31], [121, 35], [119, 38], [122, 40], [125, 39], [127, 35], [129, 36], [130, 42], [136, 45], [141, 50], [140, 55], [136, 54], [142, 59], [150, 59], [156, 58], [163, 62], [180, 65], [180, 70], [160, 70], [140, 73], [120, 73], [110, 77], [100, 78], [90, 75], [80, 73], [70, 73], [67, 69], [60, 69], [55, 68], [45, 68], [40, 67], [33, 69], [28, 71], [20, 70], [15, 68], [12, 65], [8, 63], [5, 61], [5, 58.5], [7, 58], [10.5, 59.3], [12, 56], [14, 55.5], [16, 56.3], [18.5, 59.5], [17, 61], [21, 64], [25, 65.5], [22, 62], [21, 60.5], [24, 60], [30, 60], [28, 59.5], [23.5, 59.3], [24, 57.5], [21, 57], [21, 55.5], [19, 54.4], [14.5, 53.9], [12, 54.2], [11, 54], [10.8, 54.5], [10.2, 55], [10.5, 56.5], [8.5, 57.1], [8, 55.5], [8.8, 54], [7, 53.5], [5, 53.3], [4, 52], [3, 51.2], [1.6, 50.9], [0, 49.5], [-1.5, 48.6], [-4.7, 48.4], [-1.2, 46], [-1.5, 43.5]],
+  [[-5.7, 50], [1.4, 51.1], [1.7, 52.7], [0, 53.5], [-1.5, 55], [-2, 57], [-1.8, 57.6], [-4, 58.6], [-5, 58.5], [-6, 57], [-5, 55.5], [-3, 54.5], [-3, 53.3], [-4.5, 53], [-5, 51.7], [-3, 51.4]],
+  [[-6, 52], [-6, 54], [-7.5, 55.2], [-10, 54], [-10, 51.6]],
+  [[-24, 64], [-22, 66], [-15, 66.5], [-13.5, 65], [-18, 63.4]],
+  [[-17, 21], [-16, 28], [-10, 30], [-6, 35.8], [3, 37], [10, 37], [11, 33], [20, 31], [25, 31.5], [32, 31], [33, 28], [37, 21], [39, 15], [43, 12], [51, 11], [48, 5], [42, -1], [40, -10], [40, -16], [35, -24], [33, -28], [28, -33], [20, -35], [18, -32], [12, -18], [13, -10], [9, -1], [9, 4], [5, 5], [-3, 5], [-8, 4.5], [-13, 8], [-17, 14]],
+  [[44, -25], [47, -25], [50, -15], [49, -12], [44, -17]],
+  [[114, -22], [114, -34], [118, -35], [124, -33], [131, -31.5], [138, -35], [140, -38], [146, -39], [150, -37], [153, -31], [153, -25], [146, -19], [142, -11], [136, -12], [136, -15], [131, -12], [126, -14], [122, -18]],
+  [[95, 5], [98, 4], [104, -2], [106, -6], [101, -3]],
+  [[109, 1], [111, -3], [116, -4], [119, 1], [117, 7]],
+  [[106, -6], [114, -7], [115, -8.5], [106, -7.5]],
+  [[130, 31], [132, 34], [135, 34], [140, 35], [141, 38], [142, 41], [140, 41], [139, 38], [136, 37], [133, 35], [130, 34]],
+  [[172, -34], [175, -37], [178, -38], [175, -41], [171, -44], [167, -46], [170, -42]],
+  [[8.2, 39], [9.8, 41], [9.6, 39]],
+  [[12.5, 38], [15.6, 38.2], [15, 36.7]],
+];
+const SEAS = [
+  [[28, 41.5], [28, 44], [30, 46], [33, 46], [36, 45], [38, 47], [40, 44], [41.5, 41.5], [36, 41.5], [31, 41]],
+  [[47, 45], [50, 47], [53, 46], [53, 40], [54, 37], [51, 37], [49, 38], [49, 41], [47, 43]],
+];
+const DE = [[6, 51.8], [6.1, 50.8], [6.4, 50.3], [6.1, 49.5], [7.6, 49.1], [8.2, 48.9], [7.6, 47.6], [9.6, 47.5], [10.5, 47.5], [12.9, 47.6], [13, 48.3], [13.8, 48.7], [12.4, 49.8], [12.1, 50.3], [14.8, 50.9], [14.6, 52.6], [14.2, 53.9], [11, 54.1], [9.9, 54.8], [8.6, 54.9], [8.5, 53.6], [7, 53.4], [7.1, 52.3]];
+const merc = (lon, lat) => [lon / 180 * Math.PI, -Math.log(Math.tan(Math.PI / 4 + clamp(lat, -80, 82) * Math.PI / 360))];
+const MAPV = { x: 0, y: 0, z: 0, init: false, preset: 'region' };
+const PRESETS = { region: { c: [10.3, 53.4], span: 5 }, land: { c: [10.4, 51.2], span: 11 }, europe: { c: [10, 50], span: 38 }, world: { c: [20, 25], span: 330 } };
+function setPreset(p, W) {
+  const P = PRESETS[p]; const [x, y] = merc(P.c[0], P.c[1]); MAPV.x = x; MAPV.y = y;
+  MAPV.z = (W || 360) / (P.span / 180 * Math.PI); MAPV.preset = p; MAPV.init = true;
+}
+function drawMap(cv, T) {
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  if (!MAPV.init) setPreset(stage() >= 4 ? 'europe' : stage() >= 3 ? 'land' : 'region', W);
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const Pm = (lon, lat) => { const [x, y] = merc(lon, lat); return [W / 2 + (x - MAPV.x) * MAPV.z, H / 2 + (y - MAPV.y) * MAPV.z]; };
+  const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#0d2a4a'); grd.addColorStop(1, '#0a2140'); g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  // graticule
+  g.strokeStyle = 'rgba(120,170,230,.08)'; g.lineWidth = 1;
+  for (let lon = -180; lon <= 180; lon += 15) { const a = Pm(lon, -80), b = Pm(lon, 82); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+  for (let lat = -75; lat <= 80; lat += 15) { const a = Pm(-180, lat), b = Pm(180, lat); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+  const drawPoly = (pts, fill, stroke, lw = 1) => { g.beginPath(); pts.forEach((p, i) => { const q = Pm(p[0], p[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); } };
+  for (const l of LAND) drawPoly(l, '#1d3a5c', '#2d5a86', 1.2);
+  for (const s of SEAS) drawPoly(s, '#0b2443', '#2d5a86');
+  g.setLineDash([4, 4]); drawPoly(DE, 'rgba(255,122,26,.07)', 'rgba(255,164,82,.55)', 1.3); g.setLineDash([]);
+  // routes
+  const hubs = Object.keys(S.branches);
+  const nearestHub = cid => hubs.reduce((b, h) => km(CITY[h], CITY[cid]) < km(CITY[b], CITY[cid]) ? h : b, hubs[0]);
+  const arc = (a, b, t, bend) => { const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2 - bend; const u = 1 - t; return [u * u * a[0] + 2 * u * t * mx + t * t * b[0], u * u * a[1] + 2 * u * t * my + t * t * b[1]]; };
+  for (const cid in S.markets) {
+    if (S.branches[cid]) continue; const h = nearestHub(cid);
+    const a = Pm(CITY[h].lon, CITY[h].lat), b = Pm(CITY[cid].lon, CITY[cid].lat); const bend = Math.hypot(b[0] - a[0], b[1] - a[1]) * .18;
+    g.strokeStyle = 'rgba(255,164,82,.45)'; g.lineWidth = 1.6; g.setLineDash([5, 5]); g.lineDashOffset = -T * 12; g.beginPath(); g.moveTo(a[0], a[1]);
+    for (let i = 1; i <= 20; i++) { const p = arc(a, b, i / 20, bend); g.lineTo(p[0], p[1]); } g.stroke(); g.setLineDash([]);
+  }
+  // shipments in transit
+  for (const t of S.trips) {
+    if (t.phase !== 'out' && t.phase !== 'back') continue;
+    const h = nearestHub(t.city); if (h === t.city) continue;
+    const a = Pm(CITY[h].lon, CITY[h].lat), b = Pm(CITY[t.city].lon, CITY[t.city].lat); const bend = Math.hypot(b[0] - a[0], b[1] - a[1]) * .18;
+    const p0 = clamp(t.t / t.one, 0, 1); const p = arc(a, b, t.phase === 'out' ? p0 : 1 - p0, bend);
+    const v = S.vehicles.find(x => x.id === t.vid);
+    g.fillStyle = v && v.type === 'plane' ? '#ffffff' : v && v.type === 'ship' ? '#7cc4ff' : '#ff7a1a';
+    g.beginPath(); g.arc(p[0], p[1], 4.2, 0, 7); g.fill(); g.strokeStyle = '#0a1424'; g.lineWidth = 1.5; g.stroke();
+  }
+  // cities
+  const z = MAPV.z; const st = stage();
+  for (const c of CITIES) {
+    const [x, y] = Pm(c.lon, c.lat); if (x < -40 || y < -40 || x > W + 40 || y > H + 40) continue;
+    const br = S.branches[c.id], mk = S.markets[c.id], lock = st < c.st;
+    const r = br ? 8 : mk ? 6 : 5;
+    if (br) { g.fillStyle = 'rgba(255,122,26,.25)'; g.beginPath(); g.arc(x, y, r + 5 + Math.sin(T * 2) * 1.5, 0, 7); g.fill(); }
+    g.beginPath(); g.arc(x, y, r, 0, 7);
+    g.fillStyle = br ? '#ff7a1a' : mk ? '#eef3fa' : lock ? '#2a3f5f' : '#0a1424'; g.fill();
+    g.lineWidth = 2; g.strokeStyle = br ? '#ffd2ad' : mk ? '#ff7a1a' : lock ? '#3b5479' : '#8ea4c2'; g.stroke();
+    if (U.mapCity === c.id) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, r + 6, 0, 7); g.stroke(); }
+    const showLabel = br || z > 2200 || (mk && z > 600) || (c.z >= 4 && z > 500) || c.z === 5;
+    if (showLabel) { g.font = `${br ? 700 : 600} 12px Barlow, system-ui, sans-serif`; g.textAlign = 'left'; g.fillStyle = 'rgba(5,12,24,.7)'; const tw = g.measureText(c.n).width; g.fillRect(x + r + 3, y - 8, tw + 8, 16); g.fillStyle = lock ? '#6f86a6' : '#eef3fa'; g.fillText(c.n, x + r + 7, y + 4); }
+  }
+  MAPV.proj = Pm;
+}
+function mapHit(px, py) { if (!MAPV.proj) return null; let best = null, bd = 26; for (const c of CITIES) { const [x, y] = MAPV.proj(c.lon, c.lat); const d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; best = c.id; } } return best; }
+
+/* =====================================================================
+   UI – morphing renderer
+   ===================================================================== */
+function morph(from, to) {
+  if (from.nodeType !== 1) { if (from.nodeValue !== to.nodeValue) from.nodeValue = to.nodeValue; return; }
+  for (const a of [...from.attributes]) if (!to.hasAttribute(a.name)) from.removeAttribute(a.name);
+  for (const a of to.attributes) if (from.getAttribute(a.name) !== a.value) from.setAttribute(a.name, a.value);
+  if (from.hasAttribute('data-static')) return;
+  morphKids(from, to);
+}
+function morphKids(from, to) {
+  const keyed = new Map();
+  for (const c of from.children) if (c.dataset && c.dataset.key) keyed.set(c.dataset.key, c);
+  const tk = [...to.childNodes]; let i = 0;
+  for (const t of tk) {
+    const cur = from.childNodes[i];
+    const key = t.nodeType === 1 && t.dataset ? t.dataset.key : null;
+    if (key) {
+      const m = keyed.get(key);
+      if (m) { keyed.delete(key); if (m !== cur) from.insertBefore(m, cur || null); morph(m, t); }
+      else from.insertBefore(t, cur || null);
+    } else if (cur && cur.nodeType === t.nodeType && (t.nodeType !== 1 || (cur.tagName === t.tagName && !(cur.dataset && cur.dataset.key) && (cur.getAttribute('data-static') || '') === (t.getAttribute('data-static') || '')))) {
+      morph(cur, t);
+    } else from.insertBefore(t, cur || null);
+    i++;
+  }
+  while (from.childNodes.length > i) from.removeChild(from.lastChild);
+}
+function patch(el, html) { const t = document.createElement('template'); t.innerHTML = html; morphKids(el, t.content); }
+
+/* ---------- toasts & floating text ---------- */
+function toast(msg, kind = '') { U.toasts.push({ id: Math.random(), msg, kind, t: performance.now() }); if (U.toasts.length > 4) U.toasts.shift(); renderToasts(); }
+function renderToasts() { const now = performance.now(); U.toasts = U.toasts.filter(t => now - t.t < 3600); patch(document.getElementById('toasts'), U.toasts.map(t => `<div class="toast ${t.kind}" data-key="${t.id}">${esc(t.msg)}</div>`).join('')); }
+let lastFloat = 0;
+function floatText(txt, color) {
+  const now = performance.now(); if (now - lastFloat < 250 || document.hidden) return; lastFloat = now;
+  const el = document.createElement('div'); el.className = 'float'; el.textContent = txt; el.style.color = color;
+  const hud = document.getElementById('hud').getBoundingClientRect();
+  el.style.right = (16 + rnd(0, 30)) + 'px'; el.style.top = (hud.bottom + 4) + 'px';
+  document.body.appendChild(el); setTimeout(() => el.remove(), 1300);
+}
+
+/* ---------- small view helpers ---------- */
+const bar = (p, cls = '') => `<div class="bar ${cls}"><i style="width:${clamp(p * 100, 0, 100).toFixed(1)}%"></i></div>`;
+const pips = (n, max) => `<div class="pips">${Array.from({ length: max }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</div>`;
+const stars = n => `<span class="chip o">${ic('star')}${n}</span>`;
+const btn = (label, act, a = '', cls = '', dis = false, extra = '') => `<button class="btn ${cls}" data-act="${act}" data-a="${esc(a)}"${dis ? ' disabled' : ''}${extra}>${label}</button>`;
+function repStars() { return (S.rep / 20).toFixed(1).replace('.', ','); }
+function tierChip(t) { return `<span class="chip ${t >= 4 ? 'c' : ''}">${TIER_N[t]}</span>`; }
+
+/* ---------- HUD & navigation ---------- */
+const TABS = [
+  { id: 'hq', n: 'Zentrale', ico: 'home' }, { id: 'wh', n: 'Lager', ico: 'box' }, { id: 'fleet', n: 'Flotte', ico: 'truck' },
+  { id: 'team', n: 'Team', ico: 'users', more: 1 }, { id: 'map', n: 'Karte', ico: 'globe' }, { id: 'contracts', n: 'Verträge', ico: 'doc', more: 1 },
+  { id: 'research', n: 'Forschung', ico: 'flask', more: 1 }, { id: 'finance', n: 'Finanzen', ico: 'chart', more: 1 }, { id: 'goals', n: 'Ziele', ico: 'trophy', more: 1 },
+  { id: 'company', n: 'Firma', ico: 'gear', more: 1 },
+];
+function tabDot(id) {
+  if (id === 'hq') return S.orders.some(o => o.state === 'ready' && o.left > 0 && !dispatchBlock(o)) && !staffOf('dispatcher').length;
+  if (id === 'research') return !S.research.cur && RESEARCH.some(r => researchState(r) === 'open' && S.money >= r.cost);
+  if (id === 'goals') return claimableCount() > 0;
+  if (id === 'fleet') return S.vehicles.some(v => v.cond <= 8 || (needsDriver(v) && !driverOf(v)));
+  return false;
+}
+function renderNav() {
+  const moreOn = TABS.find(t => t.id === U.tab && t.more) || U.tab === 'more';
+  const moreDot = TABS.some(t => t.more && tabDot(t.id));
+  const bottom = TABS.filter(t => !t.more).map(t => `<button class="tab ${U.tab === t.id ? 'on' : ''}" data-act="tab" data-a="${t.id}">${ic(t.ico)}${t.n}${tabDot(t.id) ? '<span class="dot"></span>' : ''}</button>`).join('')
+    + `<button class="tab ${moreOn ? 'on' : ''}" data-act="tab" data-a="more">${ic('grid')}Mehr${moreDot ? '<span class="dot"></span>' : ''}</button>`;
+  patch(document.getElementById('tabs'), bottom);
+  patch(document.getElementById('rail'), TABS.map(t => `<button class="tab ${U.tab === t.id ? 'on' : ''}" data-act="tab" data-a="${t.id}">${ic(t.ico)}${t.n}${tabDot(t.id) ? '<span class="dot"></span>' : ''}</button>`).join(''));
+}
+function renderHUD() {
+  const st = stage(); const need = xpNeed(S.level); const p = S.xp / need;
+  const L = S.fin.today; const exp = Object.values(L.exp).reduce((a, b) => a + b, 0); const net = L.rev - exp;
+  const C = 2 * Math.PI * 19;
+  patch(document.getElementById('hud'), `
+    <div class="brand">
+      <div class="lvl" title="Firmenlevel"><svg viewBox="0 0 44 44"><circle cx="22" cy="22" r="19" fill="#13253f" stroke="#24406a" stroke-width="4"/><circle cx="22" cy="22" r="19" fill="none" stroke="#ff7a1a" stroke-width="4" stroke-linecap="round" stroke-dasharray="${(C * p).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 22 22)"/></svg><b>${S.level}</b></div>
+      <div class="co"><div class="nm">${esc(S.name)}</div><div class="st">Stufe ${st} · ${STAGES[st].n}</div></div>
+    </div>
+    <div class="sp"></div>
+    <div class="cash">
+      <div class="m ${S.money < 0 ? 'neg' : ''}">${money(S.money)}</div>
+      <div class="d">Tag ${S.day} · heute <span class="${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : ''}${money(net)}</span> · ${ic('star', '').replace('<svg', '<svg style="width:11px;height:11px;vertical-align:-1px;color:var(--orange2)"')} ${repStars()}</div>
+      <div class="daybar"><i style="width:${(S.dayT / DAY * 100).toFixed(1)}%"></i></div>
+    </div>`);
+}
+
+/* ---------- views ---------- */
+function vHQ() {
+  const cap = capacity(), st = stored(), sr = sortRate();
+  const idle = S.vehicles.filter(v => vReady(v)).length;
+  const ready = S.orders.filter(o => o.state === 'ready' || o.state === 'sort' || o.state === 'out');
+  const tut = tutorial();
+  const fxs = S.fx.map(f => `<span class="chip ${f.m > 1 && f.k !== 'pay' && f.k !== 'spawn' ? 'r' : f.m < 1 && (f.k === 'pay' || f.k === 'spawn' || f.k === 'sort') ? 'r' : 'g'}">${esc(f.label)} · ${dur(f.until - S.time)}</span>`).join('');
+  return `
+  <div class="scene" data-key="scene">
+    <div data-static="scene" style="position:absolute;inset:0"><canvas id="scene" aria-label="Isometrische Ansicht des Zentrallagers"></canvas></div>
+    <div class="ov">
+      <span class="pill">${ic('box')}${num(st)} / ${num(cap)} Pakete</span>
+      <span class="pill">${ic('gear')}${nf1.format(sr)} Pakete/s</span>
+      <span class="pill">${ic('truck')}${idle} von ${S.vehicles.length} bereit</span>
+    </div>
+    <div class="lbl">${esc(S.warehouses[0].name)}</div>
+    <div class="act">${btn(ic('hand') + 'Mit anpacken', 'help', '', '', U.helpCd > 0 || !S.orders.some(o => o.state === 'sort'))}</div>
+  </div>
+  ${tut}
+  ${fxs ? `<div class="chips">${fxs}</div>` : ''}
+  <div class="cols">
+    <section class="sec">
+      <div class="sech"><h2>Im Lager <span class="cnt">${ready.length}</span></h2>${staffOf('dispatcher').length ? '<span class="chip g">Disposition automatisch</span>' : ''}</div>
+      ${bar(cap ? st / cap : 0, st / cap > .9 ? 'r' : 't')}
+      <div class="list">${ready.length ? ready.map(orderInWh).join('') : '<div class="empty">Keine Pakete im Lager. Nimm unten einen Auftrag an.</div>'}</div>
+      <div class="sech" style="margin-top:6px"><h2>Unterwegs <span class="cnt">${S.trips.length}</span></h2></div>
+      <div class="list">${S.trips.length ? S.trips.map(tripCard).join('') : '<div class="empty">Gerade ist kein Fahrzeug unterwegs.</div>'}</div>
+    </section>
+    <section class="sec">
+      <div class="sech"><h2>Neue Aufträge <span class="cnt">${S.board.length}</span></h2>${staffOf('manager').length ? '<span class="chip g">Annahme automatisch</span>' : ''}</div>
+      <div class="list">${S.board.length ? S.board.slice().sort((a, b) => a.exp - b.exp).map(boardCard).join('') : '<div class="empty">Neue Anfragen kommen gleich herein.</div>'}</div>
+    </section>
+  </div>`;
+}
+function orderMeta(o) {
+  return `<div class="chips">${tierChip(o.tier)}<span class="chip">${ic('pin')}${esc(CITY[o.city].n)}</span><span class="chip">${num(o.pk)} Pakete</span>${o.express ? `<span class="chip o">${ic('bolt')}Express</span>` : ''}${o.cold ? `<span class="chip c">${ic('snow')}Kühlung</span>` : ''}${o.contract ? '<span class="chip y">Vertrag</span>' : ''}${o.special ? '<span class="chip y">Sondermission</span>' : ''}</div>`;
+}
+function boardCard(o) {
+  const fits = canStore(o.pk); const capable = anyCapableType(o);
+  const left = o.exp - S.time;
+  return `<div class="card" data-key="${o.id}">
+    <div class="row"><div class="ico">${ic(o.ct === 'fab' || o.ct === 'corp' ? 'home' : 'box')}</div><div class="grow"><div class="ttl">${esc(o.cust)}</div><div class="sub">${CT[o.ct].n} · läuft ab in ${dur(left)}</div></div><div class="big" style="color:var(--good)">${money(o.pay)}</div></div>
+    ${orderMeta(o)}
+    <div class="row sb"><span class="sub">${!capable ? `<span style="color:var(--warn)">Kein passendes Fahrzeug in der Flotte</span>` : !fits ? `<span style="color:var(--bad)">Lager zu voll</span>` : `Frist nach Annahme: ${dur(o.win)}`}</span>${btn(ic('check') + 'Annehmen', 'accept', o.id, 'sm', !fits)}</div>
+    ${bar(clamp(left / 90, 0, 1), 'w')}
+  </div>`;
+}
+function orderInWh(o) {
+  const tl = o.deadline - S.time; const blk = o.state === 'ready' ? dispatchBlock(o) : null;
+  const prog = o.state === 'sort' ? 1 - o.sortLeft / o.pk : o.state === 'ready' ? 1 : o.delivered / o.pk;
+  const status = o.state === 'sort' ? `Sortieren ${Math.round(prog * 100)} %` : o.state === 'ready' ? (o.left < o.pk ? `${num(o.left)} Pakete übrig` : 'Versandbereit') : 'Wird ausgeliefert';
+  return `<div class="card ${o.state === 'ready' && !blk ? 'hot' : ''}" data-key="${o.id}">
+    <div class="row"><div class="grow"><div class="ttl">${esc(o.cust)}</div><div class="sub">${status} · ${o.late ? '<span style="color:var(--bad)">verspätet (−50 %)</span>' : `Frist ${dur(tl)}`}</div></div><div class="num" style="font-weight:700">${money(o.pay)}</div></div>
+    ${orderMeta(o)}
+    ${bar(prog, o.state === 'sort' ? 't' : o.state === 'out' ? 'g' : '')}
+    ${o.state === 'ready' ? `<div class="row sb"><span class="sub" style="color:${blk ? 'var(--warn)' : 'var(--mute)'}">${blk || 'Fahrzeug wird automatisch gewählt'}</span><div class="row" style="gap:6px">${btn('Fahrzeug', 'pickveh', o.id, 's sm', !!blk && blk !== 'Alle passenden Fahrzeuge unterwegs')}${btn(ic('send') + 'Versenden', 'dispatch', o.id, 'sm', !!blk)}</div></div>` : ''}
+    ${o.left === o.pk && (o.state === 'sort' || (o.state === 'ready' && dispatchBlock(o) && dispatchBlock(o) !== 'Alle passenden Fahrzeuge unterwegs') || o.late) ? `<div class="row sb"><span class="sub">Lager blockiert? Auftrag zurückgeben.</span>${btn('Stornieren · ' + money(cancelFee(o)), 'cancel', o.id, 'r sm')}</div>` : ''}
+  </div>`;
+}
+function tripCard(t) {
+  const v = S.vehicles.find(x => x.id === t.vid); if (!v) return '';
+  const ph = { queue: 'Wartet auf Rampe', load: 'Wird beladen', out: 'Auf dem Weg nach ' + CITY[t.city].n, back: 'Rückfahrt' }[t.phase];
+  const p = t.phase === 'queue' ? 0 : t.phase === 'load' ? t.t / t.load : t.t / t.one;
+  const rest = t.phase === 'load' ? (t.load - t.t) + t.one * 2 : t.phase === 'out' ? (t.one - t.t) + t.one : t.phase === 'back' ? t.one - t.t : t.load + t.one * 2;
+  return `<div class="card" data-key="${t.id}"><div class="row"><div class="ico">${ic(VT[v.type].ico)}</div><div class="grow"><div class="ttl">${esc(v.name)}</div><div class="sub">${ph} · ${num(t.pk)} Pakete · zurück in ${dur(rest)}</div></div>${t.brk ? '<span class="chip r">Panne</span>' : ''}</div>${bar(p, t.phase === 'back' ? 'w' : t.phase === 'out' ? 'g' : 't')}</div>`;
+}
+function tutorial() {
+  const steps = [
+    ['Nimm deinen ersten Auftrag an', 'Unter „Neue Aufträge“ auf Annehmen tippen. Die Pakete landen in deinem Lager.', () => S.stats.accepted > 0],
+    ['Pakete sortieren', 'Dein Lager sortiert automatisch. Mit „Mit anpacken“ geht es schneller.', () => S.orders.some(o => o.state !== 'sort') || S.stats.orders > 0],
+    ['Versende die Lieferung', 'Tippe bei einem versandbereiten Auftrag auf Versenden. Gleiche Ziele werden gebündelt.', () => S.trips.length > 0 || S.stats.orders > 0],
+    ['Erste Auslieferung', 'Warte, bis dein Lieferwagen ankommt. Pünktlichkeit bringt Ruf.', () => S.stats.orders > 0],
+    ['Stelle Personal ein', 'Unter Team einen Lagerarbeiter einstellen, damit mehr Pakete pro Sekunde sortiert werden.', () => staffOf('worker').length > 0],
+    ['Baue dein Lager aus', 'Im Lager-Bereich Regale kaufen: mehr Platz für gleichzeitige Aufträge.', () => S.warehouses[0].m.shelves > 0],
+    ['Starte deine erste Forschung', 'Der Barcode-Scanner beschleunigt das Sortieren um 20 %.', () => S.stats.researched > 0 || S.research.cur],
+  ];
+  while (S.tut < steps.length && steps[S.tut][2]()) S.tut++;
+  if (S.tut >= steps.length) return '';
+  const s = steps[S.tut];
+  return `<div class="tip"><div class="n">${S.tut + 1}</div><div class="grow"><div class="ttl" style="white-space:normal">${s[0]}</div><div class="sub">${s[1]}</div></div>${btn(ic('x'), 'tutskip', '', 's sm', false, ' aria-label="Hinweise ausblenden"')}</div>`;
+}
+
+function vWH() {
+  const wi = clamp(U.wh, 0, S.warehouses.length - 1); const w = S.warehouses[wi];
+  const sel = S.warehouses.length > 1 ? `<div class="seg">${S.warehouses.map((x, i) => `<button class="${i === wi ? 'on' : ''}" data-act="selwh" data-a="${i}">${esc(CITY[x.city].n)}</button>`).join('')}</div>` : '';
+  const cards = MOD_ORDER.map(k => {
+    const d = MODS[k]; const lv = w.m[k]; const max = lv >= d.max; const lock = !max && modLocked(k, w); const c = max ? 0 : modCost(k, w);
+    if ((d.req || d.coast) && lock && (k === 'mega' || k === 'robot' || k === 'air' || k === 'port' || k === 'rail') && stage() < 3) return '';
+    return `<div class="card ${U.flash === k ? 'flash' : ''} ${lock ? 'dim' : ''}" data-key="m-${k}">
+      <div class="row"><div class="ico">${ic(d.ico)}</div><div class="grow"><div class="ttl">${d.n}</div><div class="sub">${d.desc}</div></div></div>
+      <div class="row sb">${d.max > 1 ? pips(lv, d.max) : `<span class="chip ${lv ? 'g' : ''}">${lv ? 'Vorhanden' : 'Nicht gebaut'}</span>`}
+      ${max ? '<span class="chip g">Maximum</span>' : lock ? `<span class="chip">${ic('lock')}${esc(lock)}</span>` : btn(ic('up') + money(c), 'mod', wi + ':' + k, 'sm', S.money < c)}</div>
+    </div>`;
+  }).join('');
+  return `
+  ${sel}
+  <div class="scene" data-key="scene">
+    <div data-static="scene" style="position:absolute;inset:0"><canvas id="scene" aria-label="Isometrische Ansicht des Lagers"></canvas></div>
+    <div class="ov"><span class="pill">${ic('pin')}${esc(CITY[w.city].n)}</span><span class="pill">${ic('box')}${num(whCap(w))} Plätze</span></div>
+    <div class="lbl">${esc(w.name)}</div>
+  </div>
+  <div class="kpis">
+    <div class="kpi"><div class="l">Kapazität gesamt</div><div class="v">${num(stored())} / ${num(capacity())}</div></div>
+    <div class="kpi"><div class="l">Sortiertempo</div><div class="v">${nf1.format(sortRate())}/s</div></div>
+    <div class="kpi"><div class="l">Arbeitsplätze</div><div class="v">${staffOf('worker').length} / ${workerSlots()}</div></div>
+    <div class="kpi"><div class="l">Stellplätze</div><div class="v">${parkUsed()} / ${parkSlots()}</div></div>
+    <div class="kpi"><div class="l">Laderampen</div><div class="v">${dockCount()}</div></div>
+  </div>
+  <section class="sec"><h2>Ausbau</h2><div class="grid">${cards}</div></section>`;
+}
+
+function vFleet() {
+  const sub = U.sub.fleet;
+  const seg = `<div class="seg"><button class="${sub === 'own' ? 'on' : ''}" data-act="sub" data-a="fleet:own">Fuhrpark (${S.vehicles.length})</button><button class="${sub === 'shop' ? 'on' : ''}" data-act="sub" data-a="fleet:shop">Händler</button></div>`;
+  if (sub === 'shop') {
+    return seg + `<div class="row sb"><span class="sub">Stellplätze ${parkUsed()} / ${parkSlots()} · freie Fahrer ${freeDrivers().length}</span></div><div class="grid">${Object.keys(VT).map(k => {
+      const t = VT[k]; let lock = null;
+      if (stage() < t.st) lock = `Ab Stufe ${t.st}`; else if (t.req && !has(t.req)) lock = `Forschung: ${RS[t.req].n}`; else if (t.mod && !modSum(t.mod)) lock = `Benötigt ${MODS[t.mod].n}`;
+      const full = t.mod ? S.vehicles.filter(v => v.type === k).length >= typeLimit(k) : !t.nopark && parkUsed() >= parkSlots();
+      return `<div class="card ${lock ? 'dim' : ''}" data-key="b-${k}">
+        <div class="row"><div class="ico">${ic(t.ico)}</div><div class="grow"><div class="ttl">${t.n}</div><div class="sub">Reichweite bis ${TIER_N[t.range]}${t.minT ? ` (ab ${TIER_N[t.minT]})` : ''}${t.cold ? ' · gekühlt' : ''}${t.coastOnly ? ' · nur Hafenstädte' : ''}${t.nodriver ? ' · ohne Fahrer' : ''}</div></div><div class="big">${money(t.price)}</div></div>
+        <table class="t"><tr><td>Ladung</td><td>${num(t.cap)} Pakete</td></tr><tr><td>Tempo</td><td>${t.speed} km/h</td></tr><tr><td>Wartung</td><td>${money(t.maint)} / Tag</td></tr><tr><td>Energie</td><td>${nf1.format(t.fuel * 100)} € / 100 km</td></tr></table>
+        ${lock ? `<span class="chip">${ic('lock')}${esc(lock)}</span>` : btn(full ? 'Kein Platz frei' : 'Kaufen', 'buyveh', k, 'w', full || S.money < t.price)}
+      </div>`;
+    }).join('')}</div>`;
+  }
+  return seg + `<div class="grid">${S.vehicles.map(v => {
+    const t = VT[v.type]; const d = driverOf(v); const tr = S.trips.find(x => x.vid === v.id);
+    const status = v.state === 'trip' ? (tr ? { queue: 'Wartet', load: 'Beladung', out: 'Unterwegs nach ' + CITY[tr.city].n, back: 'Rückfahrt' }[tr.phase] : 'Unterwegs') : v.cond <= 8 ? 'Defekt' : needsDriver(v) && !d ? 'Ohne Fahrer' : 'Bereit';
+    const cls = status === 'Bereit' ? 'g' : status === 'Defekt' || status === 'Ohne Fahrer' ? 'r' : 'o';
+    return `<div class="card" data-key="${v.id}">
+      <div class="row"><div class="ico">${ic(t.ico)}</div><div class="grow"><div class="ttl">${esc(v.name)}</div><div class="sub">${num(vCap(v))} Pakete · ${Math.round(vSpeed(v))} km/h · ${needsDriver(v) ? (d ? esc(d.name) : 'kein Fahrer') : 'autonom'}</div></div><span class="chip ${cls}">${esc(status)}</span></div>
+      <div class="row"><span class="sub" style="width:64px">Zustand</span><div class="grow">${bar(v.cond / 100, v.cond < 30 ? 'r' : v.cond < 60 ? 'y' : 'g')}</div><span class="sub num">${Math.round(v.cond)} %</span></div>
+      <div class="row" style="flex-wrap:wrap;gap:6px">${btn(ic('wrench') + (v.cond < 99.5 ? money(repairCost(v)) : 'Top'), 'repair', v.id, 's sm', v.state !== 'idle' || v.cond >= 99.5 || S.money < repairCost(v))}${btn('Details', 'vehdetail', v.id, 's sm')}${needsDriver(v) && !d ? btn('Fahrer zuweisen', 'vehdetail', v.id, 'sm') : ''}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function vTeam() {
+  const st = stage();
+  const roles = Object.keys(ROLES);
+  const seg = `<div class="seg"><button class="${U.sub.team === 'staff' ? 'on' : ''}" data-act="sub" data-a="team:staff">Belegschaft (${S.staff.length})</button><button class="${U.sub.team === 'hire' ? 'on' : ''}" data-act="sub" data-a="team:hire">Bewerbungen</button></div>`;
+  const salary = S.staff.reduce((a, e) => a + e.salary, 0);
+  const summary = `<div class="kpis">${roles.map(r => `<div class="kpi"><div class="l">${ROLES[r].pl}</div><div class="v">${staffOf(r).length}${r === 'worker' ? ` / ${workerSlots()}` : ''}</div></div>`).join('')}<div class="kpi"><div class="l">Gehälter / Tag</div><div class="v">${money(salary)}</div></div></div>`;
+  if (U.sub.team === 'hire') {
+    return seg + summary + roles.map(r => {
+      const R = ROLES[r]; const lock = st < R.st;
+      return `<section class="sec" data-key="h-${r}"><div class="sech"><h2>${R.pl}</h2>${lock ? `<span class="chip">${ic('lock')}Ab Stufe ${R.st}</span>` : ''}</div><div class="sub">${R.desc}</div>
+      ${lock ? '' : `<div class="grid">${candidates(r).map(c => `<div class="card" data-key="${c.id}"><div class="row"><div class="ico">${ic(R.ico)}</div><div class="grow"><div class="ttl">${esc(c.name)}</div><div class="sub">${money(c.salary)} / Tag · Einstellungsprämie ${money(hireFee(c))}</div></div>${stars(c.lvl)}</div>${btn('Einstellen', 'hire', c.id + ':' + r, 'w', S.money < hireFee(c) || (r === 'worker' && staffOf('worker').length >= workerSlots()))}</div>`).join('') || '<div class="empty">Keine Bewerbungen. Neue kommen alle zwei Tage.</div>'}</div>`}
+      </section>`;
+    }).join('') + `<div class="row">${btn('Neue Bewerbungen ausschreiben · ' + money(150 + st * 200), 'recruit', '', 's', S.money < 150 + st * 200)}</div>`;
+  }
+  const f = U.roleF;
+  const chips = `<div class="seg">${['all', ...roles].map(r => `<button class="${f === r ? 'on' : ''}" data-act="rolef" data-a="${r}">${r === 'all' ? 'Alle' : ROLES[r].pl}</button>`).join('')}</div>`;
+  const list = S.staff.filter(e => f === 'all' || e.role === f);
+  return seg + summary + chips + `<div class="grid">${list.map(e => {
+    const need = staffNeed(e); const can = e.xp >= need && e.lvl < 5;
+    const veh = e.role === 'driver' ? S.vehicles.find(v => v.driver === e.id) : null;
+    const prod = Math.round(100 * (1 + .3 * (e.lvl - 1)));
+    return `<div class="card" data-key="${e.id}">
+      <div class="row"><div class="ico">${ic(ROLES[e.role].ico)}</div><div class="grow"><div class="ttl">${esc(e.name)}</div><div class="sub">${ROLES[e.role].n}${e.role === 'driver' ? ' · ' + (veh ? esc(veh.name) : 'ohne Fahrzeug') : ''} · ${e.founder ? 'kein Gehalt' : money(e.salary) + ' / Tag'}</div></div>${stars(e.lvl)}</div>
+      <div class="row"><span class="sub" style="width:84px">Erfahrung</span><div class="grow">${bar(e.lvl >= 5 ? 1 : e.xp / need, can ? '' : 't')}</div><span class="sub num">${prod} %</span></div>
+      <div class="row" style="gap:6px;flex-wrap:wrap">${e.lvl < 5 ? btn(can ? ic('up') + 'Befördern · ' + money(Math.max(200, e.salary) * 4) : 'Schulen · ' + money(Math.max(150, e.salary) * 3), can ? 'promote' : 'train', e.id, can ? 'sm' : 's sm', S.money < (can ? Math.max(200, e.salary) * 4 : Math.max(150, e.salary) * 3) || (!can && e.xp >= need)) : '<span class="chip g">Höchststufe</span>'}${e.founder ? '' : btn('Entlassen', 'fire', e.id, 'r sm')}</div>
+    </div>`;
+  }).join('') || '<div class="empty">Noch niemand in dieser Rolle. Unter Bewerbungen einstellen.</div>'}</div>`;
+}
+
+function vMap() {
+  const st = stage();
+  const sel = U.mapCity ? cityPanel(U.mapCity) : `<div class="card"><div class="sub">Tippe auf eine Stadt, um einen Markt zu erschließen oder eine Niederlassung zu bauen. Orange = Niederlassung, weiß = erschlossener Markt.</div></div>`;
+  const groups = [[2, 'Umland'], [3, 'Deutschland'], [4, 'International'], [5, 'Weltweit']];
+  return `
+  <div class="map" data-key="map">
+    <div data-static="map" style="position:absolute;inset:0"><canvas id="map" aria-label="Weltkarte mit Standorten"></canvas></div>
+    <div class="ctl">${btn(ic('plus'), 'zoom', '1.5', 's sm', false, ' aria-label="Hineinzoomen"')}${btn(ic('minus'), 'zoom', '0.66', 's sm', false, ' aria-label="Herauszoomen"')}</div>
+    <div class="pre">${[['region', 'Region'], ['land', 'Deutschland'], ['europe', 'Europa'], ['world', 'Welt']].map(([k, n]) => btn(n, 'preset', k, 'sm ' + (MAPV.preset === k ? 'on' : ''))).join('')}</div>
+  </div>
+  ${sel}
+  ${groups.map(([s, n]) => `<section class="sec" data-key="g-${s}"><div class="sech"><h2>${n}</h2>${st < s ? `<span class="chip">${ic('lock')}Ab Stufe ${s}</span>` : ''}</div><div class="grid">${CITIES.filter(c => c.st === s).map(c => `<button class="card" style="text-align:left;cursor:pointer" data-act="city" data-a="${c.id}" data-key="c-${c.id}"><div class="row"><div class="grow"><div class="ttl">${esc(c.n)}</div><div class="sub">${c.c} · ${num(km(CITY.hh, c))} km von Hamburg</div></div>${S.branches[c.id] ? '<span class="chip o">Niederlassung</span>' : S.markets[c.id] ? '<span class="chip g">Markt</span>' : st < c.st ? `<span class="chip">${ic('lock')}</span>` : `<span class="chip">${money(MARKET_COST[c.st])}</span>`}</div></button>`).join('')}</div></section>`).join('')}`;
+}
+function cityPanel(cid) {
+  const c = CITY[cid]; const lock = cityLock(cid); const mk = S.markets[cid], br = S.branches[cid];
+  const tier = orderTier(cid);
+  const needs = c.z >= 5 ? 'Frachtflugzeug oder Containerschiff' : tier >= 4 ? 'Sattelzug, Güterzug oder Flugzeug' : tier === 3 ? 'LKW oder größer' : tier === 2 ? 'Lieferwagen oder größer' : 'jedes Fahrzeug';
+  return `<div class="card hot" data-key="cp-${cid}">
+    <div class="row"><div class="ico">${ic(br ? 'home' : 'pin')}</div><div class="grow"><div class="ttl">${esc(c.n)}</div><div class="sub">${c.c} · Stufe ${c.st} · ${c.coast ? 'Hafenstadt' : 'Binnenland'}</div></div>${btn(ic('x'), 'city', '', 's sm', false, ' aria-label="Schließen"')}</div>
+    <table class="t"><tr><td>Lieferart</td><td>${TIER_N[tier]}</td></tr><tr><td>Benötigt</td><td>${needs}</td></tr><tr><td>Entfernung zum nächsten Lager</td><td>${br ? 'vor Ort' : num(nearestBranchDist(cid)) + ' km'}</td></tr></table>
+    ${lock ? `<span class="chip">${ic('lock')}${esc(lock)}</span>` : `<div class="row" style="gap:8px;flex-wrap:wrap">
+      ${mk ? '<span class="chip g">Markt erschlossen</span>' : btn('Markt erschließen · ' + money(MARKET_COST[c.st]), 'market', cid, '', S.money < MARKET_COST[c.st])}
+      ${br ? '<span class="chip o">Niederlassung vorhanden</span>' : btn('Niederlassung bauen · ' + money(BRANCH_COST[c.st]), 'branch', cid, 's', !mk || S.money < BRANCH_COST[c.st])}
+    </div><div class="sub">Eine Niederlassung bringt ein eigenes Lager. Lieferungen in diese Stadt werden lokal und kurz.</div>`}
+  </div>`;
+}
+
+function vContracts() {
+  if (!S.contracts.offers.length && S.day >= S.contracts.refresh) genOffers();
+  const act = S.contracts.active;
+  return `<div class="row sb"><h1>Verträge</h1><span class="chip">${act.length} / ${contractLimit()} aktiv</span></div>
+  <div class="sub">Verträge liefern jeden Tag feste Pakete in dein Lager. Mindestens 80 % pünktlich = Bonus und Ruf. Neue Angebote alle drei Tage.</div>
+  <section class="sec"><h2>Laufende Verträge</h2><div class="grid">${act.length ? act.map(c => `<div class="card" data-key="${c.id}">
+    <div class="row"><div class="ico">${ic('doc')}</div><div class="grow"><div class="ttl">${esc(c.cust)}</div><div class="sub">${num(c.per)} Pakete pro Tag nach ${esc(CITY[c.city].n)} · noch ${c.daysLeft} Tage</div></div></div>
+    ${bar(c.days ? (c.done + c.failed) / c.days : 0, 'g')}
+    <div class="row sb"><span class="sub">${c.done} geliefert · ${c.late + c.failed} verspätet/verpasst</span><span class="chip g">Bonus ${money(c.bonus)}</span></div></div>`).join('') : '<div class="empty">Kein laufender Vertrag.</div>'}</div></section>
+  <section class="sec"><div class="sech"><h2>Angebote</h2><span class="sub">Neue in ${Math.max(0, S.contracts.refresh - S.day)} Tagen</span></div><div class="grid">${S.contracts.offers.map(k => {
+    const lock = S.rep < k.minRep; const capable = S.vehicles.some(v => canServe(v, { tier: k.tier, cold: k.cold, city: k.city }));
+    return `<div class="card ${lock ? 'dim' : ''}" data-key="${k.id}">
+      <div class="row"><div class="ico">${ic('doc')}</div><div class="grow"><div class="ttl">${esc(k.cust)}</div><div class="sub">${CT[k.ct].n} · ${esc(CITY[k.city].n)}</div></div></div>
+      <div class="chips">${tierChip(k.tier)}<span class="chip">${num(k.per)} Pakete/Tag</span><span class="chip">${k.days} Tage</span>${k.cold ? `<span class="chip c">${ic('snow')}Kühlung</span>` : ''}</div>
+      <table class="t"><tr><td>Erlös pro Tag (ca.)</td><td>${money((BASE[k.geo || k.tier] + k.per * k.rate) * payMult())}</td></tr><tr><td>Bonus bei Erfolg</td><td>${money(k.bonus)}</td></tr><tr><td>Strafe bei Misserfolg</td><td>${money(k.penalty)}</td></tr></table>
+      ${!capable ? '<span class="sub" style="color:var(--warn)">Dir fehlt ein passendes Fahrzeug.</span>' : ''}
+      ${lock ? `<span class="chip">${ic('lock')}Ruf ${k.minRep} nötig</span>` : btn('Unterschreiben', 'contract', k.id, 'w', act.length >= contractLimit())}
+    </div>`;
+  }).join('') || '<div class="empty">Gerade keine Angebote.</div>'}</div></section>
+  <section class="sec"><h2>Kundengruppen</h2><div class="grid">${CTYPES.map(c => `<div class="card ${S.rep < c.rep ? 'dim' : ''}" data-key="ct-${c.id}"><div class="row"><div class="grow"><div class="ttl">${c.n}</div><div class="sub">${c.size > 1.5 ? 'Große Sendungen' : c.size > 1 ? 'Mittlere Sendungen' : 'Kleine Sendungen'}${c.cold ? ' · teils gekühlt' : ''}</div></div>${S.rep >= c.rep ? '<span class="chip g">Aktiv</span>' : `<span class="chip">${ic('star')}${(c.rep / 20).toFixed(1).replace('.', ',')}</span>`}</div></div>`).join('')}</div></section>`;
+}
+
+function vResearch() {
+  const cur = S.research.cur;
+  const head = cur ? `<div class="card hot"><div class="row"><div class="ico">${ic('flask')}</div><div class="grow"><div class="ttl">${RS[cur.id].n}</div><div class="sub">${RS[cur.id].d} · noch ${dur((RS[cur.id].time - cur.t) / researchSpeed())}</div></div></div>${bar(cur.t / RS[cur.id].time)}</div>` : `<div class="empty">Kein laufendes Projekt. Wähle unten eine Technologie.</div>`;
+  return `<div class="row sb"><h1>Forschung</h1><span class="chip">${S.stats.researched} / ${RESEARCH.length}</span></div>${head}
+  <div class="tree">${[1, 2, 3, 4, 5].map(s => `<section class="sec" data-key="rs-${s}"><div class="sech"><h2>Stufe ${s} · ${STAGES[s].n}</h2></div><div class="grid">${RESEARCH.filter(r => r.st === s).map(r => {
+    const state = researchState(r);
+    const req = r.req.filter(q => !S.research.done[q]).map(q => RS[q].n).join(', ');
+    return `<div class="card ${state === 'done' ? '' : state === 'open' ? '' : state === 'cur' ? 'hot' : 'dim'}" data-key="r-${r.id}">
+      <div class="row"><div class="grow"><div class="ttl">${r.n}</div><div class="sub">${r.d}</div></div>${state === 'done' ? `<span class="chip g">${ic('check')}Fertig</span>` : ''}</div>
+      ${state === 'open' ? `<div class="row sb"><span class="sub">${ic('clock').replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} ${dur(r.time / researchSpeed())}</span>${btn(money(r.cost), 'research', r.id, 'sm', !!cur || S.money < r.cost)}</div>` : ''}
+      ${state === 'cur' ? bar(S.research.cur.t / r.time) : ''}
+      ${state === 'req' ? `<span class="chip">${ic('lock')}Benötigt ${esc(req)}</span>` : ''}
+      ${state === 'stage' ? `<span class="chip">${ic('lock')}Ab Stufe ${r.st}</span>` : ''}
+    </div>`;
+  }).join('')}</div></section>`).join('')}</div>`;
+}
+
+function vFinance() {
+  const L = S.fin.today; const expT = Object.values(L.exp).reduce((a, b) => a + b, 0);
+  const last = S.fin.hist[S.fin.hist.length - 1];
+  const val = valuation();
+  const H = S.fin.hist.slice(-14);
+  let chart = '<div class="empty">Das Diagramm erscheint nach dem ersten abgeschlossenen Tag.</div>';
+  if (H.length) {
+    const Wc = 640, Hc = 220, pad = 34, bw = (Wc - pad - 8) / 14;
+    const mx = Math.max(1, ...H.map(d => Math.max(d.rev, d.exp)));
+    const mn = Math.min(0, ...H.map(d => d.profit));
+    const y = v => 12 + (Hc - 40) * (1 - (v - mn) / (mx - mn));
+    let s = '';
+    for (let i = 0; i <= 4; i++) { const v = mn + (mx - mn) * i / 4; s += `<line x1="${pad}" x2="${Wc - 4}" y1="${y(v)}" y2="${y(v)}" stroke="#24406a" stroke-width="1"/><text x="${pad - 6}" y="${y(v) + 4}" fill="#8ea4c2" font-size="11" text-anchor="end">${esc(num(v))}</text>`; }
+    H.forEach((d, i) => { const x = pad + 6 + i * bw; s += `<rect x="${x}" y="${y(d.rev)}" width="${bw * .38}" height="${Math.max(0, y(0) - y(d.rev))}" rx="2" fill="#ff7a1a"/><rect x="${x + bw * .4}" y="${y(d.exp)}" width="${bw * .38}" height="${Math.max(0, y(0) - y(d.exp))}" rx="2" fill="#4f6a92"/><text x="${x + bw * .39}" y="${Hc - 8}" fill="#8ea4c2" font-size="11" text-anchor="middle">${d.day}</text>`; });
+    s += `<polyline fill="none" stroke="#eef3fa" stroke-width="2" points="${H.map((d, i) => `${pad + 6 + i * bw + bw * .39},${y(d.profit)}`).join(' ')}"/>`;
+    H.forEach((d, i) => { s += `<circle cx="${pad + 6 + i * bw + bw * .39}" cy="${y(d.profit)}" r="${i === H.length - 1 ? 4 : 2.5}" fill="${d.profit >= 0 ? '#38cc8c' : '#ff5d61'}"/>`; });
+    chart = `<svg viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Umsatz, Kosten und Gewinn der letzten Tage">${s}</svg>`;
+  }
+  const br = last ? last.br : L.exp;
+  const names = { salary: 'Gehälter', maint: 'Wartung', fuel: 'Kraftstoff & Energie', rent: 'Lagermiete', power: 'Strom', ins: 'Versicherung', repair: 'Reparaturen', interest: 'Kreditzinsen', tax: 'Steuern (15 % auf Gewinn)', other: 'Sonstiges' };
+  const ml = maxLoan();
+  return `<h1>Finanzen</h1>
+  <div class="kpis">
+    <div class="kpi"><div class="l">Kontostand</div><div class="v ${S.money < 0 ? 'neg' : ''}">${money(S.money)}</div></div>
+    <div class="kpi"><div class="l">Unternehmenswert</div><div class="v">${money(val)}</div></div>
+    <div class="kpi"><div class="l">Umsatz heute</div><div class="v">${money(L.rev)}</div></div>
+    <div class="kpi"><div class="l">Kosten heute</div><div class="v">${money(expT)}</div></div>
+    <div class="kpi"><div class="l">Gewinn gestern</div><div class="v ${last && last.profit < 0 ? 'neg' : 'pos'}">${last ? money(last.profit) : '–'}</div></div>
+    <div class="kpi"><div class="l">Ruf</div><div class="v">${repStars()} / 5</div></div>
+    <div class="kpi"><div class="l">Kraftstoffpreis</div><div class="v">${Math.round(S.fuel * fx('fuel') * 100)} %</div></div>
+    <div class="kpi"><div class="l">Kredit</div><div class="v">${money(S.loan)}</div></div>
+  </div>
+  <section class="sec card chart"><div class="sech"><h2>Letzte 14 Tage</h2><div class="legend"><span><i style="background:#ff7a1a"></i>Umsatz</span><span><i style="background:#4f6a92"></i>Kosten</span><span><i style="background:#eef3fa"></i>Gewinn</span></div></div>${chart}</section>
+  <div class="cols">
+    <section class="sec card"><h2>${last ? `Kosten Tag ${last.day}` : 'Kosten heute (bisher)'}</h2><table class="t">${Object.keys(names).map(k => `<tr><td>${names[k]}</td><td>${money(br[k] || 0)}</td></tr>`).join('')}</table>
+      <div class="sub">Laufend pro Tag: Gehälter ${money(S.staff.reduce((a, e) => a + e.salary, 0))}, Wartung ${money(S.vehicles.reduce((a, v) => a + VT[v.type].maint, 0) * (has('fleet') ? .85 : 1))}.</div></section>
+    <section class="sec card"><h2>${ic('bank').replace('<svg', '<svg style="width:16px;height:16px"')} Bank</h2>
+      <div class="sub">Kreditrahmen ${money(ml)} (60 % deiner Fahrzeuge, Lager und Standorte). Zins 0,8 % pro Tag.</div>
+      ${bar(S.loan / ml, 'y')}
+      <div class="row" style="flex-wrap:wrap;gap:6px">${[.1, .25, .5].map(f => btn('+' + money(Math.max(1000, Math.round(ml * f / 1000) * 1000)), 'loan', String(Math.max(1000, Math.round(ml * f / 1000) * 1000)), 's sm', S.loan >= ml)).join('')}</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px">${btn('Tilgen ' + money(Math.min(S.loan, Math.max(0, S.money))), 'repay', String(S.loan), 'sm', S.loan <= 0 || S.money <= 0)}</div>
+    </section>
+  </div>
+  <section class="sec"><h2>Rangliste der Logistikkonzerne</h2><div class="list">${rankList().map((c, i) => `<div class="lb ${c.me ? 'me' : ''}" data-key="rk-${esc(c.n)}"><span class="rk">${i + 1}</span><div class="grow"><div class="ttl">${esc(c.n)}</div></div><span class="num" style="font-weight:700">${money(c.v)}</span></div>`).join('')}</div></section>`;
+}
+
+function vGoals() {
+  ensureMissions();
+  const sub = U.sub.goals;
+  const seg = `<div class="seg"><button class="${sub === 'daily' ? 'on' : ''}" data-act="sub" data-a="goals:daily">Tagesziele</button><button class="${sub === 'weekly' ? 'on' : ''}" data-act="sub" data-a="goals:weekly">Wochenziele</button><button class="${sub === 'ach' ? 'on' : ''}" data-act="sub" data-a="goals:ach">Erfolge</button></div>`;
+  if (sub === 'ach') return seg + `<div class="grid">${ACH.map(a => { const v = a.v(); const done = v >= a.g; return `<div class="card ${S.ach[a.id] ? '' : done ? 'hot' : ''}" data-key="${a.id}"><div class="row"><div class="ico">${ic('trophy')}</div><div class="grow"><div class="ttl">${a.n}</div><div class="sub">${a.d}</div></div>${S.ach[a.id] ? `<span class="chip g">${ic('check')}</span>` : ''}</div>${S.ach[a.id] ? '' : `${bar(v / a.g)}<div class="row sb"><span class="sub num">${num(Math.min(v, a.g))} / ${num(a.g)}</span>${done ? btn('Abholen' + (a.r ? ' · ' + money(a.r) : ''), 'ach', a.id, 'g sm') : (a.r ? `<span class="sub">${money(a.r)}</span>` : '')}</div>`}</div>`; }).join('')}</div>`;
+  const list = S.missions[sub === 'weekly' ? 'weekly' : 'daily'];
+  return seg + `<div class="sub">${sub === 'weekly' ? 'Wochenziele gelten bis Sonntag.' : 'Tagesziele werden um Mitternacht erneuert.'}</div><div class="grid">${list.map((m, i) => { const p = mProg(m); const t = MT.find(x => x.k === m.k); return `<div class="card ${!m.claimed && p >= m.n ? 'hot' : ''}" data-key="m${i}"><div class="row"><div class="ico">${ic('flag')}</div><div class="grow"><div class="ttl" style="white-space:normal">${t.t(m.n)}</div><div class="sub">Belohnung ${money(m.reward)} · ${num(m.xp)} XP</div></div></div>${bar(p / m.n, 'g')}<div class="row sb"><span class="sub num">${num(Math.max(0, p))} / ${num(m.n)}</span>${m.claimed ? `<span class="chip g">${ic('check')}Erledigt</span>` : btn('Abholen', 'mission', (sub === 'weekly' ? 'weekly' : 'daily') + ':' + i, 'g sm', p < m.n)}</div></div>`; }).join('')}</div>`;
+}
+
+function vCompany() {
+  const can = canPrestige(); const sh = prestigeShares();
+  return `<h1>Firma</h1>
+  <section class="stage-banner"><div class="sub">Aktuelle Stufe</div><div class="ttl" style="font-size:20px;white-space:normal;font-family:var(--f-disp);text-transform:uppercase;letter-spacing:.04em">${stage()} · ${STAGES[stage()].n}</div>
+    <div class="steps">${[1, 2, 3, 4, 5].map(s => `<i class="${s <= stage() ? 'on' : ''}"></i>`).join('')}</div>
+    ${stage() < 5 ? `<div class="sub" style="margin-top:8px">Nächste Stufe „${STAGES[stage() + 1].n}“ ab Firmenlevel ${STAGES[stage() + 1].lvl}${STAGES[stage() + 1].research ? ` und Forschung „${RS[STAGES[stage() + 1].research].n}“` : ''}. Freischaltungen: ${STAGES[stage() + 1].unlock.join(', ')}.</div>` : '<div class="sub" style="margin-top:8px">Höchste Stufe erreicht. Werde Weltmarktführer!</div>'}
+  </section>
+  <div class="cols">
+    <section class="sec card"><h2>Statistik</h2><table class="t">
+      <tr><td>Ausgelieferte Aufträge</td><td>${num(S.stats.orders)}</td></tr><tr><td>Ausgelieferte Pakete</td><td>${num(S.stats.pkgs)}</td></tr>
+      <tr><td>Umsatz gesamt</td><td>${money(S.stats.rev)}</td></tr><tr><td>Verspätungen</td><td>${num(S.stats.late)}</td></tr>
+      <tr><td>Internationale Aufträge</td><td>${num(S.stats.intl)}</td></tr><tr><td>Länder</td><td>${new Set(Object.keys(S.markets).map(c => CITY[c].c)).size}</td></tr>
+      <tr><td>Rang weltweit</td><td>${myRank()}. Platz</td></tr><tr><td>Aktienpunkte (Prestige)</td><td>${S.prestige.shares} (+${S.prestige.shares * 2} %)</td></tr></table>
+      ${btn('Firma umbenennen', 'rename', '', 's')}</section>
+    <section class="sec card"><h2>Börsengang</h2><p class="sub" style="margin:0">Bring dein Unternehmen an die Börse und starte neu: Du erhältst Aktienpunkte, die Erlöse, Sortier- und Forschungstempo dauerhaft um je 2 % steigern. Erfolge bleiben erhalten.</p>
+      <table class="t"><tr><td>Voraussetzung</td><td>Stufe 5 oder 50 Mio. € Wert</td></tr><tr><td>Aktienpunkte jetzt</td><td>${sh}</td></tr></table>
+      ${btn('Börsengang vorbereiten', 'ipo', '', '', !can || sh < 1)}</section>
+    <section class="sec card"><h2>Spielstand</h2><div class="sub">Wird automatisch alle 10 Sekunden auf diesem Gerät gespeichert. Mit dem Code kannst du ihn auf ein anderes Gerät mitnehmen.</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px">${btn('Jetzt speichern', 'save', '', 's sm')}${btn('Code exportieren', 'export', '', 's sm')}${btn('Code laden', 'import', '', 's sm')}${btn('Neu beginnen', 'reset', '', 'r sm')}</div></section>
+  </div>`;
+}
+function vMore() {
+  return `<h1>Mehr</h1><div class="more">${TABS.filter(t => t.more).map(t => `<button class="tile" data-act="tab" data-a="${t.id}">${ic(t.ico)}<b>${t.n}</b>${tabDot(t.id) ? '<span class="dot"></span>' : ''}<span class="sub">${{ team: `${S.staff.length} Personen`, contracts: `${S.contracts.active.length} aktiv`, research: S.research.cur ? RS[S.research.cur.id].n : 'Kein Projekt', finance: money(valuation()) + ' Wert', goals: `${claimableCount()} abholbar`, company: `${myRank()}. Platz weltweit` }[t.id]}</span></button>`).join('')}</div>`;
+}
+
+/* ---------- modals ---------- */
+function renderModal() {
+  const el = document.getElementById('overlay');
+  const M = U.modal;
+  if (!M && S.ev.cur) { U.modal = { type: 'event' }; return renderModal(); }
+  if (!M) { if (el.innerHTML) { el.innerHTML = ''; el.dataset.type = ''; } return; }
+  let body = '';
+  if (M.type === 'event' && S.ev.cur) {
+    const E = EVENTS[S.ev.cur.id]; const p = S.ev.cur.p;
+    body = `<div class="row"><div class="ico">${ic('bolt')}</div><div class="grow"><div class="sub">Ereignis</div><div class="ttl" style="font-size:19px;white-space:normal">${E.title}</div></div></div><p>${esc(E.text(p))}</p><div class="choice">${E.choices(p).map((c, i) => `<button class="btn ${i ? 's' : ''}" data-act="evchoice" data-a="${i}">${esc(c.t)}<small>${esc(c.s)}</small></button>`).join('')}</div>`;
+  } else if (M.type === 'event') { U.modal = null; return renderModal(); }
+  else if (M.type === 'stage') {
+    const s = STAGES[M.st];
+    body = `<div class="sub">Neue Unternehmensstufe</div><h1>${M.st} · ${s.n}</h1><div class="steps">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= M.st ? 'on' : ''}"></i>`).join('')}</div><p>Freigeschaltet:</p><div class="chips">${s.unlock.map(u => `<span class="chip o">${esc(u)}</span>`).join('')}</div>${btn('Weiter', 'close', '', 'w')}`;
+  } else if (M.type === 'offline') {
+    body = `<div class="sub">Willkommen zurück</div><h1>${money(M.gain)}</h1><p>Während deiner Abwesenheit (${dur(M.el)}) hat dein Team mit ${Math.round(M.eff * 100)} % Effizienz weitergearbeitet.${M.rmsg ? ` Außerdem wurde „${esc(M.rmsg)}“ fertig erforscht.` : ''} Disponenten und Manager steigern die Offline-Erträge.</p>${btn('Weiter', 'close', '', 'w')}`;
+  } else if (M.type === 'pickveh') {
+    const o = S.orders.find(x => x.id === M.oid); if (!o || o.state !== 'ready') { U.modal = null; return renderModal(); }
+    const list = S.vehicles.filter(v => canServe(v, o));
+    body = `<div class="sub">Fahrzeug wählen</div><div class="ttl" style="font-size:18px">${esc(o.cust)} · ${num(o.left)} Pakete nach ${esc(CITY[o.city].n)}</div><div class="list">${list.map(v => { const ok = vReady(v); const tt = travelTime(v, o.dist, o.tier); return `<div class="card" data-key="pv-${v.id}"><div class="row"><div class="ico">${ic(VT[v.type].ico)}</div><div class="grow"><div class="ttl">${esc(v.name)}</div><div class="sub">${num(vCap(v))} Pakete · Hinfahrt ${dur(tt)} · Zustand ${Math.round(v.cond)} %</div></div>${btn('Wählen', 'dispatchv', o.id + ':' + v.id, 'sm', !ok)}</div></div>`; }).join('') || '<div class="empty">Kein passendes Fahrzeug.</div>'}</div>${btn('Abbrechen', 'close', '', 's w')}`;
+  } else if (M.type === 'veh') {
+    const v = S.vehicles.find(x => x.id === M.vid); if (!v) { U.modal = null; return renderModal(); }
+    const t = VT[v.type]; const d = driverOf(v);
+    const drivers = staffOf('driver');
+    body = `<div class="row"><div class="ico">${ic(t.ico)}</div><div class="grow"><div class="ttl" style="font-size:19px">${esc(v.name)}</div><div class="sub">${t.n} · Wert ${money(vValue(v))}</div></div>${btn(ic('x'), 'close', '', 's sm', false, ' aria-label="Schließen"')}</div>
+      <table class="t"><tr><td>Ladung</td><td>${num(vCap(v))} Pakete</td></tr><tr><td>Tempo</td><td>${Math.round(vSpeed(v))} km/h</td></tr><tr><td>Zustand</td><td>${Math.round(v.cond)} %</td></tr><tr><td>Wartung</td><td>${money(t.maint)} / Tag</td></tr></table>
+      <h2>Upgrades</h2>
+      <div class="row sb"><div><div class="ttl">Motor</div><div class="sub">+10 % Tempo je Stufe</div></div>${pips(v.up.spd, 3)}${v.up.spd < 3 ? btn(money(vUpCost(v, 'spd')), 'vup', v.id + ':spd', 'sm', S.money < vUpCost(v, 'spd')) : '<span class="chip g">Max</span>'}</div>
+      <div class="row sb"><div><div class="ttl">Laderaum</div><div class="sub">+20 % Ladung je Stufe</div></div>${pips(v.up.cap, 3)}${v.up.cap < 3 ? btn(money(vUpCost(v, 'cap')), 'vup', v.id + ':cap', 'sm', S.money < vUpCost(v, 'cap')) : '<span class="chip g">Max</span>'}</div>
+      ${needsDriver(v) ? `<h2>Fahrer</h2><div class="list">${drivers.map(e => { const on = S.vehicles.find(x => x.driver === e.id); return `<div class="row sb" data-key="dr-${e.id}"><div><div class="ttl">${esc(e.name)}</div><div class="sub">Stufe ${e.lvl} · ${on ? (on === v ? 'fährt dieses Fahrzeug' : 'fährt ' + esc(on.name)) : 'frei'}</div></div>${on === v ? '<span class="chip g">Zugewiesen</span>' : btn('Zuweisen', 'assign', v.id + ':' + e.id, 's sm')}</div>`; }).join('')}</div>${freeDrivers().length ? '' : `<div class="sub">Kein freier Fahrer. ${btn('Fahrer einstellen', 'gohire', 'driver', 'sm')}</div>`}` : '<div class="sub">Dieses Fahrzeug braucht keinen Fahrer.</div>'}
+      ${btn('Verkaufen · ' + money(vValue(v)), 'sell', v.id, 'r w', v.state !== 'idle' || S.vehicles.length <= 1)}`;
+  } else if (M.type === 'rename') {
+    body = `<div class="ttl" style="font-size:18px">Firma umbenennen</div><input type="text" id="rename-input" maxlength="28" value="${esc(S.name)}" aria-label="Firmenname">${btn('Speichern', 'renameok', '', 'w')}${btn('Abbrechen', 'close', '', 's w')}`;
+  } else if (M.type === 'export') {
+    body = `<div class="ttl" style="font-size:18px">Spielstand-Code</div><p>Kopiere diesen Code und füge ihn auf einem anderen Gerät unter „Code laden“ ein.</p><textarea id="export-code" readonly>${esc(M.code)}</textarea>${btn('Kopieren', 'copy', '', 'w')}${btn('Schließen', 'close', '', 's w')}`;
+  } else if (M.type === 'import') {
+    body = `<div class="ttl" style="font-size:18px">Spielstand laden</div><p>Füge hier einen exportierten Code ein. Der aktuelle Spielstand wird ersetzt.</p><textarea id="import-code" aria-label="Spielstand-Code"></textarea>${btn('Laden', 'importok', '', 'w')}${btn('Abbrechen', 'close', '', 's w')}`;
+  } else if (M.type === 'confirm') {
+    body = `<div class="ttl" style="font-size:19px;white-space:normal">${esc(M.title)}</div><p>${esc(M.text)}</p>${btn(esc(M.ok), M.act, '', M.danger ? 'r w' : 'w')}${btn('Abbrechen', 'close', '', 's w')}`;
+  }
+  const html = `<div class="ovl" data-act="${M.type === 'event' ? '' : 'backdrop'}"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${body}</div></div>`;
+  if (el.dataset.type !== M.type) { el.dataset.type = M.type; el.innerHTML = html; } else patch(el, html);
+}
+
+/* ---------- main render ---------- */
+const VIEWS = { hq: vHQ, wh: vWH, fleet: vFleet, team: vTeam, map: vMap, contracts: vContracts, research: vResearch, finance: vFinance, goals: vGoals, company: vCompany, more: vMore };
+function render() {
+  renderHUD(); renderNav();
+  patch(document.getElementById('view'), (VIEWS[U.tab] || vHQ)());
+  renderModal(); renderToasts();
+  if (U.flash) setTimeout(() => { U.flash = null; }, 650);
+}
+
+/* ---------- input ---------- */
+const ACT = {
+  tab(a) { U.tab = a; U.modal = null; document.getElementById('main').scrollTop = 0; },
+  sub(a) { const [k, v] = a.split(':'); U.sub[k] = v; },
+  accept(a) { acceptOrder(a); },
+  dispatch(a) { dispatch(S.orders.find(o => o.id === a)); },
+  pickveh(a) { U.modal = { type: 'pickveh', oid: a }; },
+  cancel(a) { const o = S.orders.find(x => x.id === a); if (o) U.modal = { type: 'confirm', title: 'Auftrag stornieren?', text: `${o.cust}: ${num(o.pk)} Pakete werden zurückgegeben. Gebühr ${money(cancelFee(o))}, Ruf −2.`, ok: 'Stornieren', act: 'cancelok', danger: 1, id: a }; },
+  cancelok() { const id = U.modal && U.modal.id; U.modal = null; cancelOrder(id); },
+  dispatchv(a) { const [o, v] = a.split(':'); if (dispatch(S.orders.find(x => x.id === o), v)) U.modal = null; },
+  help() { if (U.helpCd > 0) return; const o = S.orders.find(o => o.state === 'sort'); if (!o) return; const n = Math.min(o.sortLeft, 3 + S.level * .5); o.sortLeft -= n; S.stats.sorted += n; if (o.sortLeft <= 1e-6) { o.sortLeft = 0; o.state = 'ready'; } U.helpCd = 1.2; },
+  tutskip() { S.tut = 99; },
+  selwh(a) { U.wh = +a; },
+  mod(a) { const [w, k] = a.split(':'); upgradeMod(+w, k); },
+  buyveh(a) { buyVehicle(a); },
+  repair(a) { repair(a); },
+  vehdetail(a) { U.modal = { type: 'veh', vid: a }; },
+  vup(a) { const [v, k] = a.split(':'); upgradeVehicle(v, k); },
+  assign(a) { const [v, d] = a.split(':'); assignDriver(v, d); },
+  sell(a) { sellVehicle(a); },
+  gohire(a) { U.modal = null; U.tab = 'team'; U.sub.team = 'hire'; },
+  hire(a) { const [c, r] = a.split(':'); hire(c, r); },
+  recruit() { const c = 150 + stage() * 200; if (!tryBuy(c, 'die Ausschreibung')) return; S.cand = {}; toast('Neue Bewerbungen sind eingegangen.', 'g'); },
+  rolef(a) { U.roleF = a; },
+  train(a) { train(a); }, promote(a) { promote(a); },
+  fire(a) { const e = S.staff.find(x => x.id === a); if (e) U.modal = { type: 'confirm', title: `${e.name} entlassen?`, text: `Die Abfindung beträgt ein Tagesgehalt (${money(e.salary)}).`, ok: 'Entlassen', act: 'fireok', danger: 1, id: a }; },
+  fireok() { const id = U.modal && U.modal.id; U.modal = null; fire(id); },
+  city(a) { U.mapCity = a || null; if (a) { const c = CITY[a]; const [x, y] = merc(c.lon, c.lat); MAPV.x = x; MAPV.y = y; } },
+  market(a) { openMarket(a); }, branch(a) { buildBranch(a); },
+  zoom(a) { MAPV.z = clamp(MAPV.z * +a, 60, 40000); MAPV.preset = ''; },
+  preset(a) { const cv = document.getElementById('map'); setPreset(a, cv ? cv.clientWidth : 360); },
+  contract(a) { acceptContract(a); },
+  research(a) { startResearch(a); },
+  loan(a) { takeLoan(+a); }, repay(a) { repay(+a); },
+  mission(a) { const [k, i] = a.split(':'); claimMission(k, +i); },
+  ach(a) { claimAch(a); },
+  evchoice(a) { resolveEvent(+a); },
+  close() { U.modal = null; },
+  backdrop(a, e) { if (e.target.classList.contains('ovl')) U.modal = null; },
+  rename() { U.modal = { type: 'rename' }; },
+  renameok() { const v = (document.getElementById('rename-input').value || '').trim(); if (v) S.name = v.slice(0, 28); U.modal = null; },
+  save() { const ok = save(); toast(ok ? 'Gespeichert.' : 'Speichern ist in diesem Browser nicht möglich.', ok ? 'g' : 'r'); },
+  export() { U.modal = { type: 'export', code: exportSave() }; },
+  copy() { const ta = document.getElementById('export-code'); const txt = ta ? ta.value : ''; try { navigator.clipboard.writeText(txt).then(() => toast('Code kopiert.', 'g'), () => { ta.select(); toast('Code markiert – jetzt kopieren.'); }); } catch (e) { if (ta) ta.select(); } },
+  import() { U.modal = { type: 'import' }; },
+  importok() { importSave(document.getElementById('import-code').value || ''); },
+  reset() { U.modal = { type: 'confirm', title: 'Wirklich neu beginnen?', text: 'Dein gesamter Fortschritt auf diesem Gerät wird gelöscht. Das lässt sich nicht rückgängig machen.', ok: 'Alles löschen und neu starten', act: 'resetok', danger: 1 }; },
+  resetok() { newGame(); U.modal = null; U.tab = 'hq'; save(); toast('Neues Spiel gestartet.'); },
+  ipo() { U.modal = { type: 'confirm', title: 'Börsengang durchführen?', text: `Du startest mit einer neuen Firma und erhältst ${prestigeShares()} Aktienpunkte (+${prestigeShares() * 2} % dauerhaft). Geld, Fahrzeuge, Lager und Forschung werden zurückgesetzt.`, ok: 'An die Börse gehen', act: 'ipook' }; },
+  ipook() { doPrestige(); },
+};
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b || !b.dataset.act) return;
+  const f = ACT[b.dataset.act]; if (!f) return;
+  f(b.dataset.a || '', e); render();
+});
+// map gestures
+const PT = new Map(); let pinch = null, dragMoved = false;
+document.addEventListener('pointerdown', e => { if (e.target.id !== 'map') return; e.target.setPointerCapture(e.pointerId); PT.set(e.pointerId, { x: e.clientX, y: e.clientY }); dragMoved = false; if (PT.size === 2) { const [a, b] = [...PT.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: MAPV.z }; } });
+document.addEventListener('pointermove', e => {
+  if (!PT.has(e.pointerId)) return; const p = PT.get(e.pointerId);
+  if (PT.size === 1) { const dx = e.clientX - p.x, dy = e.clientY - p.y; if (Math.abs(dx) + Math.abs(dy) > 2) dragMoved = true; MAPV.x -= dx / MAPV.z; MAPV.y -= dy / MAPV.z; MAPV.preset = ''; }
+  p.x = e.clientX; p.y = e.clientY;
+  if (PT.size === 2 && pinch) { const [a, b] = [...PT.values()]; MAPV.z = clamp(pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d, 60, 40000); dragMoved = true; MAPV.preset = ''; }
+});
+const endPtr = e => { if (!PT.has(e.pointerId)) return; PT.delete(e.pointerId); if (PT.size < 2) pinch = null; if (!dragMoved && PT.size === 0 && e.type === 'pointerup') { const r = e.target.getBoundingClientRect(); const c = mapHit(e.clientX - r.left, e.clientY - r.top); U.mapCity = c; render(); } };
+document.addEventListener('pointerup', endPtr); document.addEventListener('pointercancel', endPtr);
+document.addEventListener('wheel', e => { if (e.target.id !== 'map') return; e.preventDefault(); MAPV.z = clamp(MAPV.z * (e.deltaY < 0 ? 1.15 : .87), 60, 40000); MAPV.preset = ''; }, { passive: false });
+
+/* ---------- loop ---------- */
+let lastT = performance.now(), uiAcc = 0, saveAcc = 0;
+function frame(now) {
+  let dt = (now - lastT) / 1000; lastT = now;
+  if (dt > 300) { S.lastSave = Date.now() - dt * 1000; offlineProgress(); dt = 0; }
+  dt = Math.min(dt, 300);
+  while (dt > 0) { const s = Math.min(.25, dt); step(s); dt -= s; }
+  if (U.helpCd > 0) U.helpCd -= (now - (frame.p || now)) / 1000; frame.p = now;
+  uiAcc += 1; saveAcc += 1;
+  const T = now / 1000;
+  const sc = document.getElementById('scene'); if (sc) drawScene(sc, U.tab === 'wh' ? S.warehouses[clamp(U.wh, 0, S.warehouses.length - 1)] : S.warehouses[0], T);
+  const mp = document.getElementById('map'); if (mp) drawMap(mp, T);
+  requestAnimationFrame(frame);
+}
+setInterval(render, 220);
+setInterval(save, 10000);
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+window.addEventListener('pagehide', save);
+
+/* ---------- boot ---------- */
+const loaded = load();
+if (loaded) offlineProgress();
+ensureMissions();
+if (!S.contracts.offers.length) genOffers();
+render();
+requestAnimationFrame(t => { lastT = t; frame.p = t; requestAnimationFrame(frame); });
+window.GLT = { get S() { return S; }, step, render, U, save, load, dispatch, acceptOrder, newGame };
+</script>
+</body>
+</html>

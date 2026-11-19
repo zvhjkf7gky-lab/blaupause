@@ -122,6 +122,11 @@ h1{font-family:var(--f-disp);font-weight:800;font-size:30px;letter-spacing:.01em
 .map .ctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px}
 .map .pre{position:absolute;left:10px;bottom:10px;right:10px;display:flex;gap:6px;flex-wrap:wrap}
 .map .pre .btn{background:rgba(9,18,34,.85);color:var(--ink);border:1px solid var(--line)}
+.map.big{height:calc(100dvh - 230px)}
+.leg{margin-top:-6px}
+.leg span{font-size:11.5px;font-weight:600;background:var(--panel);border:1px solid var(--line);padding:3px 8px;border-radius:7px;display:flex;gap:5px;align-items:center}
+.leg i{width:8px;height:8px;border-radius:50%;display:inline-block}
+.card.dark{background:linear-gradient(140deg,#1d1236,#120b22);border-color:#3d2a63}
 .map .pre .btn.on{border-color:var(--orange);color:var(--orange2)}
 /* tutorial */
 .tip{background:linear-gradient(120deg,#1c3157,#14284a);border:1px solid #2d4f86;border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center}
@@ -240,6 +245,9 @@ const I = {
   bank: '<path d="M3 10 12 4l9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>',
   x: '<path d="M6 6l12 12M18 6 6 18"/>',
   flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
+  factory: '<path d="M3 21V10l5 3v-3l5 3v-3l5 3V4h3v17z"/><path d="M7 17h2M12 17h2M17 17h1"/>',
+  mask: '<path d="M3 8c3-2 15-2 18 0 0 6-3 10-9 10S3 14 3 8z"/><path d="M7 11.5h3.5M13.5 11.5H17"/>',
+  expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
 };
 const ic = (n, cls = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${I[n] || ''}</svg>`;
 
@@ -279,11 +287,11 @@ const BRANCH_COST = { 1: 0, 2: 25000, 3: 100000, 4: 600000, 5: 2500000 };
 const ZONE_RENT = { 0: 1, 4: 2, 5: 3 };
 
 const STAGES = [null,
-  { n: 'Lokale Logistik', lvl: 1, unlock: ['Lieferwagen', 'Lagerarbeiter & Disponenten', 'Aufträge in Hamburg'] },
-  { n: 'Regionale Logistik', lvl: 4, unlock: ['LKW & Kühl-LKW', 'Manager & Mechaniker', 'Städte im Umland', 'Lieferverträge mit größeren Kunden'] },
-  { n: 'Nationale Logistik', lvl: 8, unlock: ['Sattelzüge & Güterzüge', 'Logistik-Spezialisten', 'Ganz Deutschland', 'Automatisierung im Lager'] },
-  { n: 'Internationale Logistik', lvl: 12, research: 'customs', unlock: ['Europa & Übersee', 'Frachtflugzeuge & Containerschiffe', 'Häfen & Flughafen-Terminals'] },
-  { n: 'Globales Logistik-Imperium', lvl: 17, unlock: ['Alle Kontinente', 'Mega-Hubs', 'Börsengang (Prestige)'] },
+  { n: 'Lokale Logistik', lvl: 1, unlock: ['Lieferwagen', 'Lagerarbeiter & Disponenten', 'Aufträge in Hamburg', 'Großbäckerei'] },
+  { n: 'Regionale Logistik', lvl: 5, unlock: ['LKW & Kühl-LKW', 'Manager & Mechaniker', 'Städte im Umland', 'Ausschreibungen', 'Unterwelt-Kontakte', 'Getränke- und Möbelwerke'] },
+  { n: 'Nationale Logistik', lvl: 10, unlock: ['Sattelzüge & Güterzüge', 'Logistik-Spezialisten', 'Ganz Deutschland', 'Automatisierung im Lager', 'Elektronik- und Pharmawerke', 'Schwarzgeld-Transporte'] },
+  { n: 'Internationale Logistik', lvl: 16, research: 'customs', unlock: ['Europa & Übersee', 'Frachtflugzeuge & Containerschiffe', 'Häfen & Flughafen-Terminals'] },
+  { n: 'Globales Logistik-Imperium', lvl: 22, unlock: ['Alle Kontinente', 'Mega-Hubs', 'Autoteilewerk', 'Endkampf: übernimm alle Konkurrenten'] },
 ];
 
 const VT = {
@@ -366,7 +374,7 @@ const RS = Object.fromEntries(RESEARCH.map(r => [r.id, r]));
 let S = null;
 const U = { tab: 'hq', sub: { fleet: 'own', team: 'staff', goals: 'daily', contracts: 'active' }, wh: 0, modal: null, toasts: [], helpCd: 0, mapCity: null, roleF: 'all', confirmReset: false };
 
-function ledger() { return { rev: 0, inv: 0, exp: { salary: 0, maint: 0, fuel: 0, rent: 0, power: 0, ins: 0, repair: 0, interest: 0, tax: 0, other: 0 } }; }
+function ledger() { return { rev: 0, inv: 0, exp: { salary: 0, maint: 0, fuel: 0, rent: 0, power: 0, ins: 0, repair: 0, interest: 0, tax: 0, prod: 0, fines: 0, other: 0 } }; }
 function initComps() { return [{ n: 'Nordwind Cargo', v: 2e6, g: .012 }, { n: 'Atlas Freight', v: 15e6, g: .009 }, { n: 'Meridian Logistics', v: 90e6, g: .007 }, { n: 'Pacific Line Group', v: 400e6, g: .005 }, { n: 'Orbis Express', v: 1.5e9, g: .004 }]; }
 
 function newGame(keep) {
@@ -374,6 +382,7 @@ function newGame(keep) {
     v: 2, name: keep ? keep.name : 'Elbe Logistik', money: 5000, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
     stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0, tenders: 0, takeovers: 0, campaigns: 0 },
     rivals: initRivals(), boost: {}, war: {}, tenders: [], tenderT: 2, news: [], stageMax: 1,
+    factories: [], sat: {}, heat: 0, under: { offers: [], refresh: 0 }, won: 0,
     markets: { hh: 1 }, branches: { hh: 1 },
     warehouses: [{ id: 'w1', city: 'hh', name: 'Zentrallager Hamburg', m: { size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, inv: 0 }],
     vehicles: [{ id: 'v1', type: 'van', name: 'Lieferwagen 1', cond: 100, up: { spd: 0, cap: 0 }, driver: 'me', state: 'idle' }],
@@ -393,10 +402,10 @@ const nid = p => p + (S.nid++);
 /* ---------- derived values ---------- */
 const has = r => !!S.research.done[r];
 const GOALS = {
-  2: { t: '50 Aufträge ausliefern', v: () => S.stats.orders, g: 50 },
+  2: { t: '75 Aufträge ausliefern', v: () => S.stats.orders, g: 75 },
   3: { t: 'Marktanteil in Hamburg über 50 %', v: () => Math.round(share('hh') * 100), g: 51, unit: ' %' },
   4: { t: 'Eine Ausschreibung gewinnen', v: () => S.stats.tenders || 0, g: 1 },
-  5: { t: 'Einen Konkurrenten übernehmen', v: () => S.stats.takeovers || 0, g: 1 },
+  5: { t: 'Zwei Konkurrenten übernehmen', v: () => S.stats.takeovers || 0, g: 2 },
 };
 function stageReady(i) { const d = STAGES[i], G = GOALS[i]; return S.level >= d.lvl && (!d.research || has(d.research)) && (!G || G.v() >= G.g); }
 function stage() { let s = S.stageMax || 1; while (s < 5 && stageReady(s + 1)) s++; if (s > (S.stageMax || 1)) S.stageMax = s; return s; }
@@ -430,7 +439,7 @@ function needsDriver(v) { return !VT[v.type].nodriver && !has('autonomous'); }
 function vSpeed(v) { const d = driverOf(v); return VT[v.type].speed * (1 + .1 * v.up.spd) * (d ? 1 + .04 * (d.lvl - 1) : 1); }
 function vCap(v) { return Math.round(VT[v.type].cap * (1 + .2 * v.up.cap)); }
 function vValue(v) { return VT[v.type].price * (1 + .25 * (v.up.spd + v.up.cap)) * .55 * (.4 + .6 * v.cond / 100); }
-function vReady(v) { return v.state === 'idle' && v.cond > 8 && (!needsDriver(v) || !!driverOf(v)); }
+function vReady(v) { return v.state === 'idle' && !(v.impound > S.time) && v.cond > 8 && (!needsDriver(v) || !!driverOf(v)); }
 function canServe(v, o) {
   const t = VT[v.type];
   if (t.range < o.tier) return false;
@@ -611,12 +620,15 @@ function step(dt) {
   // staff experience
   for (const e of S.staff) if (!e.founder || e.lvl < 5) e.xp = Math.min(staffNeed(e), e.xp + dt);
   // events
-  if (!S.ev.cur) { S.ev.next -= dt; if (S.ev.next <= 0) { triggerEvent(); S.ev.next = rnd(120, 210); } }
+  if (!S.ev.cur) { S.ev.next -= dt; if (S.ev.next <= 0) { triggerEvent(); S.ev.next = rnd(80, 150); } }
   S.apT += dt; if (S.apT >= 1) { S.apT -= 1; autopilot(); const st = stage(); if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; } }
   if (S.tenders.length) tendersTick();
+  if (S.factories.length) prodTick(dt);
   if (S.dayT >= DAY) endDay();
 }
 function deliver(tr) {
+  const ill = tr.loads.map(l => S.orders.find(x => x.id === l.oid)).filter(o => o && o.illegal);
+  if (ill.length && Math.random() < Math.max(...ill.map(controlRisk))) busted(tr, ill);
   for (const l of tr.loads) {
     const o = S.orders.find(x => x.id === l.oid); if (!o) continue;
     o.delivered += l.n;
@@ -629,10 +641,12 @@ function completeOrder(o) {
   S.orders = S.orders.filter(x => x !== o);
   S.stats.orders++; S.stats.pkgs += o.pk;
   if (o.express) S.stats.express++; if (o.tier >= 4) S.stats.intl++; if (o.cold) S.stats.cold++;
-  if (o.late) { S.stats.late++; addRep(-1.5); } else addRep(.25 + o.tier * .1 + (o.express ? .2 : 0));
+  if (o.illegal) { S.stats.smuggled = (S.stats.smuggled || 0) + 1; S.stats.dirty = (S.stats.dirty || 0) + o.pay; S.heat = Math.min(100, S.heat + 3 + CB[o.illegal].risk * 40); }
+  else if (o.late) { S.stats.late++; addRep(-1.5); } else addRep(.25 + o.tier * .1 + (o.express ? .2 : 0));
   addXp(5 + o.pk * .5 * o.tier);
   if (o.contract) { const c = S.contracts.active.find(c => c.id === o.contract); if (c) { c.done++; if (o.late) c.late++; } }
   if (o.special) { addRep(3); toast(`Sondermission erfüllt: ${o.cust}`, 'g'); }
+  if (o.own) { const k = o.prod + ':' + o.city; S.sat[k] = Math.max(.35, (S.sat[k] || 1) - o.pk / (PR[o.prod].out * 5)); S.stats.produced = (S.stats.produced || 0) + o.pk; }
   if (o.manual) floatText('+' + money(o.pay * (o.late ? .5 : 1)), o.late ? 'var(--warn)' : 'var(--good)');
 }
 function finishTrip(tr) {
@@ -951,6 +965,36 @@ const EVENTS = {
       { t: 'Nichts tun', s: 'Der Rivale behält die Kunden', f() {} },
     ],
   },
+  sabotage: {
+    rival: 1,
+    ok: () => stage() >= 2 && activeRivals().length > 0 && S.vehicles.some(v => v.state === 'idle'),
+    make() { const v = pick(S.vehicles.filter(v => v.state === 'idle')); return { v: v.id, name: v.name, r: pick(activeRivals()).id, cost: Math.round(600 + avgRev() * .15) }; },
+    title: 'Sabotage', text: p => `Leute von ${RV[p.r].n} schleichen nachts um deinen Hof. ${p.name} ist in Gefahr.`,
+    choices: p => [
+      { t: 'Sicherheitsdienst buchen', s: `Kostet ${money(p.cost)}, nichts passiert`, f() { spend(p.cost, 'other'); } },
+      { t: 'Riskieren', s: `${p.name} verliert 50 % Zustand`, f() { const v = S.vehicles.find(x => x.id === p.v); if (v) v.cond = Math.max(0, v.cond - 50); } },
+    ],
+  },
+  tipoff: {
+    rival: 1,
+    ok: () => S.heat > 15 && activeRivals().length > 0,
+    make: () => ({ r: pick(activeRivals()).id, cost: bribeCost() }),
+    title: 'Verpfiffen', text: p => `${RV[p.r].n} hat der Polizei einen anonymen Hinweis über deine Schmuggelfahrten gegeben.`,
+    choices: p => [
+      { t: 'Beamte schmieren', s: `Kostet ${money(p.cost)}, die Akte verschwindet`, f() { spend(p.cost, 'other'); } },
+      { t: 'Abwarten', s: 'Fahndungsdruck +20', f() { S.heat = Math.min(100, S.heat + 20); } },
+    ],
+  },
+  steal: {
+    rival: 1,
+    ok: () => S.contracts.active.length > 0 && activeRivals().length > 0,
+    make() { const c = pick(S.contracts.active); return { c: c.id, cust: c.cust, r: pick(activeRivals()).id }; },
+    title: 'Kunde wird abgeworben', text: p => `${RV[p.r].n} bietet ${p.cust} einen günstigeren Vertrag an.`,
+    choices: p => [
+      { t: 'Preis senken', s: '−20 % Vergütung für den Rest der Laufzeit', f() { const c = S.contracts.active.find(x => x.id === p.c); if (c) c.rate *= .8; } },
+      { t: 'Kunde ziehen lassen', s: 'Der Vertrag endet ohne Strafe, Marktanteil sinkt', f() { const c = S.contracts.active.find(x => x.id === p.c); if (c) { S.contracts.active = S.contracts.active.filter(x => x !== c); const x = S.rivals.find(y => y.id === p.r); if (x) x.pres[c.city] = Math.min(8, (x.pres[c.city] || 0) + 1); } } },
+    ],
+  },
   poach: {
     ok: () => stage() >= 2 && activeRivals().length > 0 && S.staff.some(e => !e.founder && e.lvl >= 2),
     make() { const e = S.staff.filter(e => !e.founder).sort((a, b) => b.lvl - a.lvl)[0]; return { e: e.id, name: e.name, r: pick(activeRivals()).id, cost: Math.round(e.salary * .25) }; },
@@ -1037,6 +1081,9 @@ const ACH = [
   { id: 's5', n: 'Imperium', d: 'Stufe 5 erreichen', v: () => stage(), g: 5, r: 2e6 },
   { id: 'rall', n: 'Technologieführer', d: 'Alle Technologien erforschen', v: () => S.stats.researched, g: RESEARCH.length, r: 5e6 },
   { id: 'top', n: 'Weltmarktführer', d: 'Platz 1 der Logistik-Rangliste', v: () => 6 - myRank(), g: 5, r: 1e7 },
+  { id: 'fab3', n: 'Industrieller', d: 'Drei Fabriken besitzen', v: () => S.factories.length, g: 3, r: 50000 },
+  { id: 'smug', n: 'Unterweltboss', d: '25 Schmuggelfahrten durchbringen', v: () => S.stats.smuggled || 0, g: 25, r: 100000 },
+  { id: 'all5', n: 'Alleinherrscher', d: 'Alle fünf Konkurrenten übernehmen', v: () => S.stats.takeovers || 0, g: 5, r: 5e7 },
   { id: 'ipo', n: 'Börsengang', d: 'Einen Neustart mit Aktien wagen', v: () => S.prestige.count, g: 1, r: 0 },
 ];
 function claimAch(id) { const a = ACH.find(x => x.id === id); if (!a || S.ach[id] || a.v() < a.g) return; S.ach[id] = 1; S.money += a.r; toast(`Erfolg freigeschaltet: ${a.n}${a.r ? ' · ' + money(a.r) : ''}`, 'g'); }
@@ -1078,8 +1125,8 @@ function share(cid) { const p = playerStr(cid); if (!p) return 0; return p / (p 
 function avgShare() { const c = Object.keys(S.markets); return c.length ? c.reduce((a, x) => a + share(x), 0) / c.length : 1; }
 function cityPay(cid) { return (.85 + .3 * share(cid)) * (S.war[cid] > S.time ? .8 : 1); }
 function campaignCost(cid) { return Math.round((MARKET_COST[CITY[cid].st] || 1500) * .4 + 800 + avgRev() * .5); }
-function takeoverPrice(x) { return Math.round(x.v * .5); }
-function canTakeover(x) { return valuation() >= x.v * 1.2; }
+function takeoverPrice(x) { return Math.round(x.v * .75); }
+function canTakeover(x) { return valuation() >= x.v * 1.4; }
 function campaign(cid) {
   if (!S.markets[cid]) return;
   const c = campaignCost(cid); if (!tryBuy(c, 'die Werbekampagne')) return;
@@ -1093,7 +1140,7 @@ function priceWar(cid) {
 }
 function takeover(id) {
   const x = S.rivals.find(r => r.id === id); if (!x || x.gone) return;
-  if (!canTakeover(x)) return toast(`Dein Firmenwert muss mindestens ${money(x.v * 1.2)} betragen.`, 'y');
+  if (!canTakeover(x)) return toast(`Dein Firmenwert muss mindestens ${money(x.v * 1.4)} betragen.`, 'y');
   const price = takeoverPrice(x); if (!tryBuy(price, 'die Übernahme')) return;
   x.gone = 1; S.stats.takeovers = (S.stats.takeovers || 0) + 1;
   for (const c in x.pres) { if (!S.markets[c] && !cityLock(c)) S.markets[c] = 1; S.boost[c] = (S.boost[c] || 0) + x.pres[c] * .7; }
@@ -1106,15 +1153,17 @@ function rivalsDay() {
     if (x.gone || st < RV[x.id].st) continue;
     const R = RV[x.id];
     // expand into a city near home or where the player is strong
-    if (Math.random() < .55 * R.agg) {
+    if (Math.random() < .75 * R.agg) {
       const pool = CITIES.filter(c => c.st <= Math.max(st, R.st) + 1);
       const c = wpick(pool, c => (x.pres[c.id] ? 2 : 1) * (S.markets[c.id] ? 1.5 + share(c.id) * 2 : .6) / (1 + km(CITY[R.home], c) / 800));
-      x.pres[c.id] = Math.min(7, (x.pres[c.id] || 0) + rnd(.25, .6));
+      x.pres[c.id] = Math.min(8, (x.pres[c.id] || 0) + rnd(.3, .7));
     }
     let tp = 0; for (const c in x.pres) { if (S.war[c] > S.time) x.pres[c] = Math.max(0, x.pres[c] - .6); tp += x.pres[c]; }
     x.v *= 1 + .004 + Math.min(tp, 15) * .0002;
   }
   for (const c in S.boost) S.boost[c] *= .97;
+  underDay(); prodDay();
+  if (!S.won && S.rivals.every(x => x.gone)) { S.won = 1; U.modal = { type: 'win' }; }
   // tenders
   S.tenderT--;
   if (st >= 2 && S.tenderT <= 0 && S.tenders.length < 2) { genTender(); S.tenderT = rint(2, 4); }
@@ -1135,7 +1184,7 @@ function genTender() {
 const BIDS = { low: { n: 'Günstig', d: '−15 % Preis', m: .85, f: 1.7 }, mid: { n: 'Marktpreis', d: 'normaler Preis', m: 1, f: 1 }, high: { n: 'Premium', d: '+15 % Preis', m: 1.15, f: .55 } };
 function tenderChance(t, bid) {
   const ps = (share(t.city) + .15) * (.6 + S.rep / 100) * BIDS[bid].f;
-  let rs = 0; for (const id of t.rivals) { const x = S.rivals.find(r => r.id === id); if (x && !x.gone) rs += .35 + (x.pres[t.city] || 0) / 6; }
+  let rs = 0; for (const id of t.rivals) { const x = S.rivals.find(r => r.id === id); if (x && !x.gone) rs += .5 + (x.pres[t.city] || 0) / 5; }
   return rs ? ps / (ps + rs) : 1;
 }
 function placeBid(id, bid) { const t = S.tenders.find(x => x.id === id); if (!t) return; t.bid = bid; toast(`Gebot „${BIDS[bid].n}“ für ${t.cust} abgegeben.`, 'g'); }
@@ -1187,7 +1236,7 @@ function vRivals() {
     if (c.me) return `<div class="lb me" data-key="rv-me"><span class="rk">${i + 1}</span><div class="grow"><div class="ttl">${esc(c.n)}</div><div class="sub">Deine Firma</div></div><span class="num" style="font-weight:700">${money(c.v)}</span></div>`;
     const x = S.rivals.find(r => r.id === c.id); const R = RV[c.id]; const active = stg() >= R.st; const ok = canTakeover(x);
     return `<div class="lb" data-key="rv-${c.id}" style="flex-wrap:wrap"><span class="rk" style="color:${R.col}">${i + 1}</span><div class="grow"><div class="ttl">${esc(R.n)}</div><div class="sub">${active ? esc(R.tag) + ' · in ' + Object.keys(x.pres).filter(k => x.pres[k] > .05).length + ' Städten' : 'Noch nicht aktiv'}</div></div><span class="num" style="font-weight:700">${money(c.v)}</span>
-      <div style="flex-basis:100%">${ok ? btn('Übernehmen · ' + money(takeoverPrice(x)), 'takeover', c.id, 'sm w', S.money < takeoverPrice(x)) : `<div class="sub">Übernahme ab ${money(x.v * 1.2)} Firmenwert</div>${bar(valuation() / (x.v * 1.2), 'y')}`}</div></div>`;
+      <div style="flex-basis:100%">${ok ? btn('Übernehmen · ' + money(takeoverPrice(x)), 'takeover', c.id, 'sm w', S.money < takeoverPrice(x)) : `<div class="sub">Übernahme ab ${money(x.v * 1.4)} Firmenwert</div>${bar(valuation() / (x.v * 1.4), 'y')}`}</div></div>`;
   }).join('')}${list.some(c => !c.me && stg() < RV[c.id].st) ? `<div class="sub">${list.filter(c => !c.me && stg() < RV[c.id].st).length} weitere Konzerne treten in späteren Kapiteln gegen dich an.</div>` : ''}</div></section>
   <section class="sec"><h2>Deine Märkte</h2><div class="grid">${markets.map(c => `<div class="card" data-key="sh-${c}"><div class="row sb"><div class="ttl">${esc(CITY[c].n)}</div><span class="chip ${share(c) >= .5 ? 'g' : share(c) < .3 ? 'r' : 'y'}">${Math.round(share(c) * 100)} %</span></div>${shareBlock(c).replace('<h2>Marktanteile</h2>', '')}</div>`).join('')}</div></section>`;
 }
@@ -1212,6 +1261,138 @@ function newsCard() {
     <div class="list" style="gap:6px">${list.map((n, i) => `<div class="row" data-key="n${i}" style="align-items:flex-start;gap:8px"><span class="sub num" style="width:44px;flex:none">Tag ${n.d}</span><span style="font-size:13.5px;line-height:1.35;color:${col[n.k] || 'var(--ink)'}">${esc(n.m)}</span></div>`).join('')}</div></section>`;
 }
 
+
+/* ---------- production ---------- */
+const PRODUCTS = [
+  { id: 'bread', n: 'Großbäckerei', good: 'Backwaren', st: 1, cost: 8000, out: 40, unit: 2.5, price: 11, cold: 0 },
+  { id: 'drink', n: 'Getränkeabfüllung', good: 'Getränke', st: 2, cost: 25000, out: 100, unit: 3.5, price: 13, cold: 0 },
+  { id: 'furn', n: 'Möbelwerk', good: 'Möbel', st: 2, cost: 45000, out: 40, unit: 18, price: 60, cold: 0 },
+  { id: 'elec', n: 'Elektronikwerk', good: 'Elektronik', st: 3, cost: 220000, out: 120, unit: 30, price: 95, cold: 0 },
+  { id: 'pharma', n: 'Pharmawerk', good: 'Medikamente', st: 3, cost: 350000, out: 80, unit: 55, price: 180, cold: 1 },
+  { id: 'auto', n: 'Autoteilewerk', good: 'Autoteile', st: 5, cost: 3000000, out: 600, unit: 38, price: 110, cold: 0 },
+];
+const PR = Object.fromEntries(PRODUCTS.map(x => [x.id, x]));
+function hashF(str) { let h = 2166136261; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return ((h >>> 0) % 1000) / 1000; }
+function prodPrice(pid, cid) { const P = PR[pid]; return P.price * (.8 + hashF(pid + cid) * .5) * (1 + .15 * (geoTier(cid) - 1)) * (S.sat[pid + ':' + cid] || 1) * prestigeMult(); }
+function facOut(f) { return PR[f.type].out * (1 + .6 * (f.lvl - 1)); }
+function facUpCost(f) { return Math.round(PR[f.type].cost * .6 * Math.pow(f.lvl, 1.5)); }
+function facTargets(f) { const P = PR[f.type]; return Object.keys(S.markets).filter(c => S.vehicles.some(v => canServe(v, { tier: orderTier(c), cold: P.cold, city: c }))).sort((a, b) => prodPrice(P.id, b) - prodPrice(P.id, a)); }
+function buildFactory(type, city) {
+  const P = PR[type]; if (!P) return;
+  if (stage() < P.st) return toast(`${P.n} ab Stufe ${P.st}.`, 'y');
+  if (!S.branches[city]) return toast('Fabriken brauchen eine eigene Niederlassung in der Stadt.', 'y');
+  if (!tryBuy(P.cost, P.n)) return;
+  S.factories.push({ id: nid('f'), type, city, lvl: 1, stock: 0, target: 'auto', last: null, made: 0 });
+  toast(`${P.n} in ${CITY[city].n} eröffnet. Die Ware wird automatisch über dein Lager verkauft.`, 'g');
+}
+function upgradeFactory(id) { const f = S.factories.find(x => x.id === id); if (!f || f.lvl >= 5) return; const c = facUpCost(f); if (!tryBuy(c, 'den Ausbau')) return; f.lvl++; toast(`${PR[f.type].n} auf Stufe ${f.lvl}.`, 'g'); }
+function prodTick(dt) {
+  for (const f of S.factories) {
+    const P = PR[f.type]; const daily = facOut(f);
+    if (f.stock < daily * 2) { const n = daily * dt / DAY; f.stock += n; spend(n * P.unit, 'prod'); }
+    const batch = Math.max(12, Math.round(daily * .5));
+    if (f.stock >= batch && canStore(batch)) {
+      const list = facTargets(f); const target = f.target !== 'auto' && list.includes(f.target) ? f.target : list[0];
+      if (!target) continue;
+      const o = genOrder({ city: target, ct: 'web', pk: batch, cold: !!P.cold, express: false });
+      o.cust = `${P.good} aus ${CITY[f.city].n}`; o.pay = Math.round(batch * prodPrice(P.id, target)); o.own = 1; o.prod = P.id; o.win *= 2;
+      admit(o); f.stock -= batch; f.last = target; f.made += batch;
+    }
+  }
+}
+function prodDay() { for (const k in S.sat) { S.sat[k] += (1 - S.sat[k]) * .15; if (Math.abs(1 - S.sat[k]) < .01) delete S.sat[k]; } }
+function vProd() {
+  const st = stage(); const br = Object.keys(S.branches);
+  return `<div class="row sb"><h1>Produktion</h1><span class="chip">${S.factories.length} ${S.factories.length === 1 ? 'Fabrik' : 'Fabriken'}</span></div>
+  <div class="sub">Eigene Fabriken stellen Ware her. Dein Lager sortiert sie, deine Flotte liefert sie in die Stadt mit dem besten Preis. Wer zu viel in eine Stadt liefert, drückt dort den Preis. Rohstoffe kosten jeden Tag Geld.</div>
+  <section class="sec"><h2>Deine Fabriken</h2><div class="grid">${S.factories.map(f => {
+    const P = PR[f.type]; const list = facTargets(f); const daily = facOut(f); const best = list[0];
+    const tg = f.target !== 'auto' && list.includes(f.target) ? f.target : best;
+    const margin = tg ? prodPrice(P.id, tg) - P.unit : 0;
+    return `<div class="card" data-key="${f.id}">
+      <div class="row"><div class="ico" style="color:var(--good)">${ic('factory')}</div><div class="grow"><div class="ttl">${P.n} ${esc(CITY[f.city].n)}</div><div class="sub">${num(daily)} ${P.good}/Tag · Rohstoffe ${money(daily * P.unit)}/Tag</div></div>${pips(f.lvl, 5)}</div>
+      <div class="row"><span class="sub" style="width:58px">Lager</span><div class="grow">${bar(f.stock / (daily * 2), 'g')}</div><span class="sub num">${num(f.stock)}</span></div>
+      <table class="t"><tr><td>Ziel</td><td>${tg ? esc(CITY[tg].n) : 'kein Fahrzeug passt'}</td></tr><tr><td>Preis pro Stück</td><td>${tg ? money(prodPrice(P.id, tg)) : '–'}</td></tr><tr><td>Gewinn pro Stück</td><td class="${margin >= 0 ? 'pos' : 'neg'}">${tg ? money(margin) : '–'}</td></tr><tr><td>Bisher hergestellt</td><td>${num(f.made)}</td></tr></table>
+      <div class="chips"><button class="chip ${f.target === 'auto' ? 'g' : ''}" style="border:0;cursor:pointer" data-act="factarget" data-a="${f.id}:auto">Bester Preis</button>${list.slice(0, 5).map(c => `<button class="chip ${f.target === c ? 'o' : ''}" style="border:0;cursor:pointer" data-act="factarget" data-a="${f.id}:${c}">${esc(CITY[c].n)} ${money(prodPrice(P.id, c))}</button>`).join('')}</div>
+      ${f.lvl < 5 ? btn(ic('up') + 'Ausbauen · ' + money(facUpCost(f)), 'upfac', f.id, 'sm', S.money < facUpCost(f)) : '<span class="chip g">Höchststufe</span>'}
+    </div>`; }).join('') || '<div class="empty">Noch keine Fabrik. Baue unten deine erste.</div>'}</div></section>
+  <section class="sec"><h2>Neue Fabrik bauen</h2><div class="grid">${PRODUCTS.map(P => {
+    const lock = st < P.st;
+    return `<div class="card ${lock ? 'dim' : ''}" data-key="np-${P.id}">
+      <div class="row"><div class="ico" style="color:var(--good)">${ic('factory')}</div><div class="grow"><div class="ttl">${P.n}</div><div class="sub">${num(P.out)} ${P.good}/Tag · Herstellung ${money(P.unit)} · Verkauf ab ${money(P.price * .8)}${P.cold ? ' · gekühlt' : ''}</div></div><div class="big">${money(P.cost)}</div></div>
+      ${lock ? `<span class="chip">${ic('lock')}Ab Stufe ${P.st}</span>` : `<div class="row" style="flex-wrap:wrap;gap:6px">${br.slice(0, 6).map(c => btn('in ' + esc(CITY[c].n), 'buildfac', P.id + ':' + c, 's sm', S.money < P.cost)).join('')}</div>`}
+    </div>`; }).join('')}</div></section>`;
+}
+
+/* ---------- underworld ---------- */
+const CONTRA = [
+  { id: 'fake', n: 'Gefälschte Markenware', mult: 2.6, risk: .05, st: 2 },
+  { id: 'stolen', n: 'Hehlerware', mult: 3.2, risk: .07, st: 2 },
+  { id: 'drugs', n: 'Drogen', mult: 6, risk: .15, st: 2 },
+  { id: 'cash', n: 'Schwarzgeld', mult: 4.5, risk: .1, st: 3 },
+];
+const CB = Object.fromEntries(CONTRA.map(x => [x.id, x]));
+const ALIAS = ['Der Fuchs', 'Mr. Grau', 'Kobra', 'Die Witwe', 'Nachtfalke', 'Onkel Jo', 'Der Zahnarzt', 'Silberzahn'];
+function heatLabel() { const h = S.heat; return h < 20 ? 'unauffällig' : h < 45 ? 'beobachtet' : h < 70 ? 'im Visier' : 'Großfahndung'; }
+function controlRisk(o) { return Math.min(.85, CB[o.illegal].risk * (1 + S.heat / 40) * (o.tier >= 4 ? 1.6 : 1)); }
+function bribeCost() { return Math.round(3000 + avgRev() * .6 + S.heat * 80); }
+function bribe() { if (S.heat < 1) return; const c = bribeCost(); if (S.money < c) return toast('Zu wenig Geld für die Bestechung.', 'r'); spend(c, 'fines'); S.heat = Math.max(0, S.heat - 25); toast(`Ein paar Umschläge wechseln den Besitzer. Fahndungsdruck jetzt ${Math.round(S.heat)} %.`, 'y'); }
+function genSmuggle() {
+  const types = CONTRA.filter(x => stage() >= x.st); const cities = Object.keys(S.markets); const out = [];
+  for (let i = 0; i < 3; i++) {
+    const C = pick(types); const city = pick(cities); const geo = geoTier(city); const [a, b] = SIZE[geo];
+    const pk = Math.max(4, Math.round(rnd(a, b) * rnd(.3, .6)));
+    out.push({ id: nid('u'), type: C.id, city, pk, pay: Math.round((BASE[geo] + pk * RATE[geo]) * C.mult * payMult()), alias: pick(ALIAS) });
+  }
+  S.under.offers = out; S.under.refresh = S.day + 2;
+}
+function acceptSmuggle(id) {
+  const x = S.under.offers.find(o => o.id === id); if (!x) return;
+  if (S.orders.filter(o => o.illegal).length >= 3) return toast('Höchstens drei heiße Ladungen gleichzeitig.', 'y');
+  if (!canStore(x.pk)) return toast('Kein Platz im Lager.', 'r');
+  const o = genOrder({ city: x.city, ct: 'shop', pk: x.pk, cold: false, express: false });
+  o.cust = `${CB[x.type].n} für „${x.alias}“`; o.pay = x.pay; o.illegal = x.type; o.win *= 1.5;
+  S.under.offers = S.under.offers.filter(y => y !== x);
+  admit(o); toast(`Die Ware ist im Lager versteckt. Ab jetzt zählt jede Kontrolle.`, 'y');
+}
+function busted(tr, ill) {
+  let fine = 0;
+  for (const o of ill) { S.orders = S.orders.filter(x => x !== o); fine += o.pay * 1.2; }
+  spend(fine, 'fines'); addRep(-6); S.heat = Math.min(100, S.heat + 18); S.stats.busted = (S.stats.busted || 0) + 1;
+  const v = S.vehicles.find(x => x.id === tr.vid); if (v) v.impound = S.time + DAY;
+  toast(`Polizeikontrolle! Ware beschlagnahmt, ${money(fine)} Strafe${v ? `, ${v.name} für einen Tag festgesetzt` : ''}.`, 'r', true);
+}
+function underDay() {
+  S.heat = Math.max(0, S.heat - 2.5);
+  if (stage() >= 2 && S.day >= S.under.refresh) genSmuggle();
+  if (S.heat >= 65 && Math.random() < (S.heat - 50) / 100) {
+    const fine = Math.round(5000 + Math.max(0, S.money) * .05);
+    spend(fine, 'fines'); addRep(-10); S.heat = Math.max(0, S.heat - 30);
+    S.orders = S.orders.filter(o => !o.illegal); addFx('spawn', .3, DAY, 'Ermittlungen laufen');
+    toast(`Razzia im Lager! ${money(fine)} Strafe, alle heißen Waren weg, Kunden meiden dich einen Tag.`, 'r', true);
+  }
+}
+function vUnder() {
+  if (stage() < 2) return `<h1>Unterwelt</h1><div class="card dark"><div class="row"><div class="ico">${ic('mask')}</div><div class="sub">Ab Stufe 2 melden sich zwielichtige Kontakte mit lukrativen, aber gefährlichen Aufträgen.</div></div></div>`;
+  const h = S.heat; const act = S.orders.filter(o => o.illegal);
+  return `<div class="row sb"><h1>Unterwelt</h1><span class="chip ${h >= 60 ? 'r' : h >= 30 ? 'y' : ''}">${heatLabel()}</span></div>
+  <div class="card dark">
+    <div class="row sb"><span class="ttl">Fahndungsdruck</span><span class="big">${Math.round(h)} %</span></div>
+    ${bar(h / 100, h >= 60 ? 'r' : h >= 30 ? 'y' : 'g')}
+    <div class="sub">Jede Schmuggelfahrt erhöht den Druck. Je höher er ist, desto öfter wird kontrolliert. Über 65 % drohen Razzien. Der Druck sinkt jeden Tag ein wenig. Internationale Fahrten werden schärfer kontrolliert.</div>
+    <div class="row sb"><span class="sub">${num(S.stats.smuggled || 0)} Fahrten durchgebracht · ${num(S.stats.busted || 0)}× erwischt · ${money(S.stats.dirty || 0)} Umsatz</span>${btn('Bestechen · ' + money(bribeCost()), 'bribe', '', 's sm', h < 1 || S.money < bribeCost())}</div>
+  </div>
+  <section class="sec"><h2>Heiße Ladungen unterwegs <span class="cnt">${act.length}/3</span></h2>${act.length ? `<div class="list">${act.map(o => `<div class="card dark" data-key="ia-${o.id}"><div class="row sb"><div class="ttl">${esc(o.cust)}</div><span class="chip r">Kontrollrisiko ${Math.round(controlRisk(o) * 100)} %</span></div><div class="sub">${num(o.pk)} Pakete nach ${esc(CITY[o.city].n)} · ${money(o.pay)} · ${o.state === 'sort' ? 'wird umgepackt' : o.state === 'ready' ? 'wartet auf Fahrzeug' : 'unterwegs'}</div></div>`).join('')}</div>` : '<div class="empty">Gerade nichts Heißes im Lager.</div>'}</section>
+  <section class="sec"><div class="sech"><h2>Angebote</h2><span class="sub">neue in ${Math.max(0, S.under.refresh - S.day)} Tagen</span></div><div class="grid">${S.under.offers.map(x => {
+    const C = CB[x.type]; const risk = Math.min(.85, C.risk * (1 + h / 40) * (geoTier(x.city) >= 4 ? 1.6 : 1));
+    return `<div class="card dark" data-key="${x.id}">
+      <div class="row"><div class="ico" style="color:#c084fc">${ic('mask')}</div><div class="grow"><div class="ttl">${C.n}</div><div class="sub">Kontakt „${esc(x.alias)}“ · ${num(x.pk)} Pakete nach ${esc(CITY[x.city].n)}</div></div><div class="big" style="color:#c084fc">${money(x.pay)}</div></div>
+      <div class="chips"><span class="chip ${risk > .25 ? 'r' : risk > .1 ? 'y' : 'g'}">Kontrollrisiko ${Math.round(risk * 100)} %</span><span class="chip">${C.mult}× normaler Lohn</span></div>
+      <div class="sub">Erwischt: Ware weg, Strafe ${money(x.pay * 1.2)}, Fahrzeug einen Tag festgesetzt, Ruf −6.</div>
+      ${btn('Annehmen', 'smuggle', x.id, 'w', act.length >= 3 || !canStore(x.pk))}
+    </div>`; }).join('') || '<div class="empty">Deine Kontakte melden sich bald.</div>'}</div></section>`;
+}
+
 /* ---------- autopilot ---------- */
 const AP_KEYS = [['accept', 'Aufträge annehmen'], ['dispatch', 'Versenden'], ['care', 'Reparatur & Fahrer'], ['events', 'Ereignisse & Belohnungen'], ['research', 'Forschung'], ['build', 'Ausbau & Einkauf']];
 function apReserve() { const h = S.fin.hist[S.fin.hist.length - 1]; return Math.max(400, h ? h.exp * .8 : 300); }
@@ -1229,6 +1410,8 @@ function autoEvent() {
   if (c.id === 'bigorder' || c.id === 'gov') best = c.p.o && canStore(c.p.o.pk) && S.vehicles.some(v => canServe(v, c.p.o)) ? 0 : 1;
   else if (c.id === 'pricewar') best = apCan(c.p.cost * 3) ? 1 : 0;
   else if (c.id === 'rival_push') best = apCan(c.p.cost * 2) ? 0 : 2;
+  else if (c.id === 'sabotage' || c.id === 'tipoff') best = apCan(c.p.cost * 2) ? 0 : 1;
+  else if (c.id === 'steal') best = 0;
   else if (c.id === 'poach') best = apCan(c.p.cost * 30) ? 0 : 1;
   else { best = ch.findIndex((x, i) => costly(i)); if (best < 0 || !apCan((c.p.cost || 0) * 3)) best = ch.findIndex((x, i) => !costly(i)); if (best < 0) best = 0; }
   toast(`${EVENTS[c.id].title}: Autopilot wählt „${ch[best].t}“`, 'y', !!EVENTS[c.id].rival);
@@ -1249,7 +1432,9 @@ function autopilotRun() {
   if (A.accept) {
     let q = S.orders.filter(o => o.state === 'sort').reduce((a, o) => a + o.sortLeft, 0);
     const sr = sortRate();
+    const waitingReady = S.orders.filter(o => o.state === 'ready' && o.left > 0 && !bestVehicle(o)).length;
     for (const o of S.board.slice().sort((a, b) => b.pay / b.pk - a.pay / a.pk)) {
+      if (waitingReady > Math.max(1, S.vehicles.length / 3)) break;
       if (!canStore(o.pk) || !S.vehicles.some(v => canServe(v, o))) continue;
       if ((q + o.pk) / sr < o.win * .45 && stored() + o.pk <= capacity() * .9) { if (acceptOrder(o.id, true)) q += o.pk; }
     }
@@ -1339,6 +1524,7 @@ function migrate(o) {
   if (!o.rivals) m.rivals = initRivals();
   for (const k of ['boost', 'war']) m[k] = o[k] || {};
   m.tenders = o.tenders || []; m.news = o.news || [];
+  m.factories = o.factories || []; m.sat = o.sat || {}; m.heat = o.heat || 0; m.under = o.under || { offers: [], refresh: 0 }; m.won = o.won || 0;
   for (const w of m.warehouses) w.m = Object.assign({ size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, w.m);
   return m;
 }
@@ -1555,13 +1741,14 @@ function drawMap(cv, T) {
   if (!MAPV.init) setPreset(stage() >= 4 ? 'europe' : stage() >= 3 ? 'land' : 'region', W);
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   const Pm = (lon, lat) => { const [x, y] = merc(lon, lat); return [W / 2 + (x - MAPV.x) * MAPV.z, H / 2 + (y - MAPV.y) * MAPV.z]; };
-  const grd = g.createLinearGradient(0, 0, 0, H); grd.addColorStop(0, '#0d2a4a'); grd.addColorStop(1, '#0a2140'); g.fillStyle = grd; g.fillRect(0, 0, W, H);
+  const grd = g.createRadialGradient(W * .5, H * .4, 0, W * .5, H * .5, Math.max(W, H) * .8); grd.addColorStop(0, '#103457'); grd.addColorStop(1, '#071a33'); g.fillStyle = grd; g.fillRect(0, 0, W, H);
   // graticule
   g.strokeStyle = 'rgba(120,170,230,.08)'; g.lineWidth = 1;
   for (let lon = -180; lon <= 180; lon += 15) { const a = Pm(lon, -80), b = Pm(lon, 82); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
   for (let lat = -75; lat <= 80; lat += 15) { const a = Pm(-180, lat), b = Pm(180, lat); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
   const drawPoly = (pts, fill, stroke, lw = 1) => { g.beginPath(); pts.forEach((p, i) => { const q = Pm(p[0], p[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); if (fill) { g.fillStyle = fill; g.fill(); } if (stroke) { g.strokeStyle = stroke; g.lineWidth = lw; g.stroke(); } };
-  for (const l of LAND) drawPoly(l, '#1d3a5c', '#2d5a86', 1.2);
+  g.save(); g.translate(0, 4); for (const l of LAND) drawPoly(l, 'rgba(2,10,24,.55)'); g.restore();
+  for (const l of LAND) drawPoly(l, '#21446d', '#3d75ae', 1.3);
   for (const s of SEAS) drawPoly(s, '#0b2443', '#2d5a86');
   g.setLineDash([4, 4]); drawPoly(DE, 'rgba(255,122,26,.07)', 'rgba(255,164,82,.55)', 1.3); g.setLineDash([]);
   // routes
@@ -1574,15 +1761,44 @@ function drawMap(cv, T) {
     g.strokeStyle = 'rgba(255,164,82,.45)'; g.lineWidth = 1.6; g.setLineDash([5, 5]); g.lineDashOffset = -T * 12; g.beginPath(); g.moveTo(a[0], a[1]);
     for (let i = 1; i <= 20; i++) { const p = arc(a, b, i / 20, bend); g.lineTo(p[0], p[1]); } g.stroke(); g.setLineDash([]);
   }
-  // shipments in transit
+  // rival traffic (cosmetic)
+  activeRivals().forEach((x, ri) => {
+    const home = RV[x.id].home; const cs = Object.keys(x.pres).filter(c => c !== home && x.pres[c] > 1).slice(0, 4);
+    cs.forEach((c, k) => {
+      const a = Pm(CITY[home].lon, CITY[home].lat), b = Pm(CITY[c].lon, CITY[c].lat); const bend = Math.hypot(b[0] - a[0], b[1] - a[1]) * .12;
+      const ph = (T * .045 + k * .31 + ri * .17) % 2; const q = arc(a, b, ph < 1 ? ph : 2 - ph, bend);
+      g.fillStyle = RV[x.id].col; g.globalAlpha = .85; g.beginPath(); g.moveTo(q[0], q[1] - 4); g.lineTo(q[0] + 4, q[1]); g.lineTo(q[0], q[1] + 4); g.lineTo(q[0] - 4, q[1]); g.closePath(); g.fill(); g.globalAlpha = 1;
+    });
+  });
+  // factories and their supply lines
+  for (const f of S.factories) {
+    const fc = CITY[f.city]; const [fx, fy] = Pm(fc.lon, fc.lat);
+    if (f.last && f.last !== f.city) { const b = Pm(CITY[f.last].lon, CITY[f.last].lat); g.strokeStyle = 'rgba(56,204,140,.5)'; g.lineWidth = 1.4; g.setLineDash([2, 5]); g.lineDashOffset = -T * 16; g.beginPath(); g.moveTo(fx, fy); g.lineTo(b[0], b[1]); g.stroke(); g.setLineDash([]); }
+  }
+  // own shipments with vehicle glyphs and trails
+  const local = {}; const labels = [];
   for (const t of S.trips) {
     if (t.phase !== 'out' && t.phase !== 'back') continue;
-    const h = nearestHub(t.city); if (h === t.city) continue;
+    const h = nearestHub(t.city); if (h === t.city) { local[t.city] = (local[t.city] || 0) + 1; continue; }
     const a = Pm(CITY[h].lon, CITY[h].lat), b = Pm(CITY[t.city].lon, CITY[t.city].lat); const bend = Math.hypot(b[0] - a[0], b[1] - a[1]) * .18;
-    const p0 = clamp(t.t / t.one, 0, 1); const p = arc(a, b, t.phase === 'out' ? p0 : 1 - p0, bend);
-    const v = S.vehicles.find(x => x.id === t.vid);
-    g.fillStyle = v && v.type === 'plane' ? '#ffffff' : v && v.type === 'ship' ? '#7cc4ff' : '#ff7a1a';
-    g.beginPath(); g.arc(p[0], p[1], 4.2, 0, 7); g.fill(); g.strokeStyle = '#0a1424'; g.lineWidth = 1.5; g.stroke();
+    const p0 = clamp(t.t / t.one, 0, 1); const u = t.phase === 'out' ? p0 : 1 - p0;
+    const p = arc(a, b, u, bend), p2 = arc(a, b, clamp(u + (t.phase === 'out' ? .01 : -.01), 0, 1), bend);
+    const v = S.vehicles.find(x => x.id === t.vid); const type = v ? v.type : 'truck';
+    const ords = t.loads.map(l => S.orders.find(o => o.id === l.oid)).filter(Boolean);
+    const col = ords.some(o => o.illegal) ? '#c084fc' : ords.some(o => o.own) ? '#38cc8c' : '#ff8a2a';
+    // trail
+    g.strokeStyle = col; g.lineWidth = 2.2; g.globalAlpha = .35; g.beginPath();
+    for (let i = 0; i <= 8; i++) { const q = arc(a, b, clamp(u - (t.phase === 'out' ? 1 : -1) * i * .012, 0, 1), bend); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }
+    g.stroke(); g.globalAlpha = 1;
+    const ang = Math.atan2(p2[1] - p[1], p2[0] - p[0]);
+    g.save(); g.translate(p[0], p[1]); g.rotate(ang);
+    g.fillStyle = col; g.strokeStyle = '#06101f'; g.lineWidth = 1.4;
+    if (type === 'plane') { g.beginPath(); g.moveTo(8, 0); g.lineTo(-6, -2); g.lineTo(-2, -8); g.lineTo(-4, -8); g.lineTo(-8, -2); g.lineTo(-9, 0); g.lineTo(-8, 2); g.lineTo(-4, 8); g.lineTo(-2, 8); g.lineTo(-6, 2); g.closePath(); g.fill(); g.stroke(); }
+    else if (type === 'ship') { g.beginPath(); g.moveTo(9, 0); g.lineTo(4, -4); g.lineTo(-8, -4); g.lineTo(-8, 4); g.lineTo(4, 4); g.closePath(); g.fill(); g.stroke(); g.fillStyle = '#eef3fa'; g.fillRect(-6, -2, 6, 4); }
+    else if (type === 'train') { for (let i = 0; i < 3; i++) { g.fillRect(-12 + i * 7, -3, 6, 6); } }
+    else { g.beginPath(); g.rect(-6, -3.5, 9, 7); g.fill(); g.stroke(); g.fillStyle = '#eef3fa'; g.fillRect(3, -3, 3.5, 6); }
+    g.restore();
+    if (MAPV.z > 1200 && labels.length < 10) { g.font = '600 10px Barlow, system-ui, sans-serif'; const lbl = num(t.pk) + ' Pk'; const tw = g.measureText(lbl).width; const lx = p[0] + 8, ly = p[1] - 15; if (labels.some(q => Math.abs(q[0] - lx) < tw + 10 && Math.abs(q[1] - ly) < 16)) continue; labels.push([lx, ly]); g.fillStyle = 'rgba(5,12,24,.75)'; g.fillRect(p[0] + 8, p[1] - 15, tw + 6, 13); g.fillStyle = '#eef3fa'; g.textAlign = 'left'; g.fillText(lbl, p[0] + 11, p[1] - 5); }
   }
   // cities
   const z = MAPV.z; const st = stage();
@@ -1594,7 +1810,13 @@ function drawMap(cv, T) {
     g.beginPath(); g.arc(x, y, r, 0, 7);
     g.fillStyle = br ? '#ff7a1a' : mk ? '#eef3fa' : lock ? '#2a3f5f' : '#0a1424'; g.fill();
     g.lineWidth = 2; g.strokeStyle = br ? '#ffd2ad' : mk ? '#ff7a1a' : lock ? '#3b5479' : '#8ea4c2'; g.stroke();
-    if (U.mapCity === c.id) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, r + 6, 0, 7); g.stroke(); }
+    { const ps = playerStr(c.id); const segs = ps ? [[ps, '#ff7a1a']] : []; for (const xr of activeRivals()) if ((xr.pres[c.id] || 0) > .05) segs.push([xr.pres[c.id], RV[xr.id].col]);
+      const tot = segs.reduce((q, s2) => q + s2[0], 0);
+      if (tot && segs.length > (ps ? 1 : 0)) { let a0 = -Math.PI / 2; g.lineWidth = 3.5; for (const [v2, cl] of segs) { const a1 = a0 + v2 / tot * Math.PI * 2; g.strokeStyle = cl; g.beginPath(); g.arc(x, y, r + 5, a0 + .06, a1 - .06); g.stroke(); a0 = a1; } } }
+    if (local[c.id]) { g.fillStyle = '#ff7a1a'; g.beginPath(); g.arc(x - r - 6, y - r - 4, 8, 0, 7); g.fill(); g.fillStyle = '#1a0d02'; g.font = '700 10px Barlow, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(local[c.id] > 99 ? '99+' : String(local[c.id]), x - r - 6, y - r - .5); }
+    const nf2 = S.factories.filter(f => f.city === c.id).length;
+    if (nf2) { g.fillStyle = '#38cc8c'; g.fillRect(x + r - 2, y + r - 1, 11, 9); g.fillStyle = '#06210f'; g.font = '700 8px Barlow, system-ui, sans-serif'; g.textAlign = 'center'; g.fillText(String(nf2), x + r + 3.5, y + r + 6); }
+    if (U.mapCity === c.id) { g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(x, y, r + 9, 0, 7); g.stroke(); }
     const showLabel = br || z > 2200 || (mk && z > 600) || (c.z >= 4 && z > 500) || c.z === 5;
     if (showLabel) { g.font = `${br ? 700 : 600} 12px Barlow, system-ui, sans-serif`; g.textAlign = 'left'; g.fillStyle = 'rgba(5,12,24,.7)'; const tw = g.measureText(c.n).width; g.fillRect(x + r + 3, y - 8, tw + 8, 16); g.fillStyle = lock ? '#6f86a6' : '#eef3fa'; g.fillText(c.n, x + r + 7, y + 4); }
   }
@@ -1663,12 +1885,15 @@ const TABS = [
   { id: 'team', n: 'Team', ico: 'users', more: 1 }, { id: 'map', n: 'Karte', ico: 'globe' }, { id: 'contracts', n: 'Verträge', ico: 'doc', more: 1 },
   { id: 'research', n: 'Forschung', ico: 'flask', more: 1 }, { id: 'finance', n: 'Finanzen', ico: 'chart', more: 1 }, { id: 'goals', n: 'Ziele', ico: 'trophy', more: 1 },
   { id: 'rivals', n: 'Konkurrenz', ico: 'flag', more: 1 },
+  { id: 'prod', n: 'Produktion', ico: 'factory', more: 1 },
+  { id: 'under', n: 'Unterwelt', ico: 'mask', more: 1 },
   { id: 'company', n: 'Firma', ico: 'gear', more: 1 },
 ];
 function tabDot(id) {
   if (id === 'hq') return S.orders.some(o => o.state === 'ready' && o.left > 0 && !dispatchBlock(o)) && !staffOf('dispatcher').length;
   if (id === 'research') return !S.research.cur && RESEARCH.some(r => researchState(r) === 'open' && S.money >= r.cost);
   if (id === 'goals') return claimableCount() > 0;
+  if (id === 'under') return stage() >= 2 && (S.heat >= 60 || (S.under.offers.length > 0 && !S.stats.smuggled));
   if (id === 'rivals') return S.tenders.some(t => !t.bid) || S.rivals.some(x => !x.gone && canTakeover(x) && S.money >= takeoverPrice(x));
   if (id === 'fleet') return S.vehicles.some(v => v.cond <= 8 || (needsDriver(v) && !driverOf(v)));
   return false;
@@ -1717,6 +1942,7 @@ function vHQ() {
     <div class="act">${btn(ic('hand') + 'Mit anpacken', 'help', '', '', U.helpCd > 0 || !S.orders.some(o => o.state === 'sort'))}</div>
   </div>
   ${chapterCard()}
+  ${S.heat >= 1 ? `<div class="chips"><button class="chip ${S.heat >= 60 ? 'r' : S.heat >= 30 ? 'y' : ''}" style="border:0;cursor:pointer" data-act="tab" data-a="under">${ic('mask')}Fahndungsdruck ${Math.round(S.heat)} % · ${heatLabel()}</button></div>` : ''}
   ${tut}
   ${autoPanel()}
   ${fxs ? `<div class="chips">${fxs}</div>` : ''}
@@ -1832,8 +2058,8 @@ function vFleet() {
   const shownV = S.vehicles.slice().sort((a, b) => a.cond - b.cond).slice(0, 40);
   return seg + fleetSum + (S.vehicles.length > 40 ? `<div class="sub">Die 40 Fahrzeuge mit dem schlechtesten Zustand von ${num(S.vehicles.length)}.</div>` : '') + `<div class="grid">${shownV.map(v => {
     const t = VT[v.type]; const d = driverOf(v); const tr = S.trips.find(x => x.vid === v.id);
-    const status = v.state === 'trip' ? (tr ? { queue: 'Wartet', load: 'Beladung', out: 'Unterwegs nach ' + CITY[tr.city].n, back: 'Rückfahrt' }[tr.phase] : 'Unterwegs') : v.cond <= 8 ? 'Defekt' : needsDriver(v) && !d ? 'Ohne Fahrer' : 'Bereit';
-    const cls = status === 'Bereit' ? 'g' : status === 'Defekt' || status === 'Ohne Fahrer' ? 'r' : 'o';
+    const status = v.state === 'trip' ? (tr ? { queue: 'Wartet', load: 'Beladung', out: 'Unterwegs nach ' + CITY[tr.city].n, back: 'Rückfahrt' }[tr.phase] : 'Unterwegs') : v.impound > S.time ? 'Beschlagnahmt' : v.cond <= 8 ? 'Defekt' : needsDriver(v) && !d ? 'Ohne Fahrer' : 'Bereit';
+    const cls = status === 'Bereit' ? 'g' : status === 'Defekt' || status === 'Ohne Fahrer' || status === 'Beschlagnahmt' ? 'r' : 'o';
     return `<div class="card" data-key="${v.id}">
       <div class="row"><div class="ico">${ic(t.ico)}</div><div class="grow"><div class="ttl">${esc(v.name)}</div><div class="sub">${num(vCap(v))} Pakete · ${Math.round(vSpeed(v))} km/h · ${needsDriver(v) ? (d ? esc(d.name) : 'kein Fahrer') : 'autonom'}</div></div><span class="chip ${cls}">${esc(status)}</span></div>
       <div class="row"><span class="sub" style="width:64px">Zustand</span><div class="grow">${bar(v.cond / 100, v.cond < 30 ? 'r' : v.cond < 60 ? 'y' : 'g')}</div><span class="sub num">${Math.round(v.cond)} %</span></div>
@@ -1877,11 +2103,12 @@ function vMap() {
   const sel = U.mapCity ? cityPanel(U.mapCity) : `<div class="card"><div class="sub">Tippe auf eine Stadt, um einen Markt zu erschließen oder eine Niederlassung zu bauen. Orange = Niederlassung, weiß = erschlossener Markt.</div></div>`;
   const groups = [[2, 'Umland'], [3, 'Deutschland'], [4, 'International'], [5, 'Weltweit']];
   return `
-  <div class="map" data-key="map">
+  <div class="map ${U.mapBig ? 'big' : ''}" data-key="map">
     <div data-static="map" style="position:absolute;inset:0"><canvas id="map" aria-label="Weltkarte mit Standorten"></canvas></div>
-    <div class="ctl">${btn(ic('plus'), 'zoom', '1.5', 's sm', false, ' aria-label="Hineinzoomen"')}${btn(ic('minus'), 'zoom', '0.66', 's sm', false, ' aria-label="Herauszoomen"')}</div>
+    <div class="ctl">${btn(ic('expand'), 'mapbig', '', 's sm', false, ' aria-label="Karte vergrößern"')}${btn(ic('plus'), 'zoom', '1.5', 's sm', false, ' aria-label="Hineinzoomen"')}${btn(ic('minus'), 'zoom', '0.66', 's sm', false, ' aria-label="Herauszoomen"')}</div>
     <div class="pre">${[['region', 'Region'], ['land', 'Deutschland'], ['europe', 'Europa'], ['world', 'Welt']].map(([k, n]) => btn(n, 'preset', k, 'sm ' + (MAPV.preset === k ? 'on' : ''))).join('')}</div>
   </div>
+    <div class="leg chips"><span><i style="background:var(--orange)"></i>Du</span>${activeRivals().map(x => `<span><i style="background:${RV[x.id].col}"></i>${esc(RV[x.id].n.split(' ')[0])}</span>`).join('')}${S.factories.length ? '<span><i style="background:#38cc8c"></i>Produktion</span>' : ''}${S.stats.smuggled || S.orders.some(o => o.illegal) ? '<span><i style="background:#c084fc"></i>Schmuggel</span>' : ''}</div>
   ${sel}
   ${groups.map(([s, n]) => `<section class="sec" data-key="g-${s}"><div class="sech"><h2>${n}</h2>${st < s ? `<span class="chip">${ic('lock')}Ab Stufe ${s}</span>` : ''}</div><div class="grid">${CITIES.filter(c => c.st === s).map(c => `<button class="card" style="text-align:left;cursor:pointer" data-act="city" data-a="${c.id}" data-key="c-${c.id}"><div class="row"><div class="grow"><div class="ttl">${esc(c.n)}</div><div class="sub">${c.c} · ${num(km(CITY.hh, c))} km von Hamburg</div></div>${S.branches[c.id] ? '<span class="chip o">Niederlassung</span>' : S.markets[c.id] ? '<span class="chip g">Markt</span>' : st < c.st ? `<span class="chip">${ic('lock')}</span>` : `<span class="chip">${money(MARKET_COST[c.st])}</span>`}</div></button>`).join('')}</div></section>`).join('')}`;
 }
@@ -1958,7 +2185,7 @@ function vFinance() {
     chart = `<svg viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Umsatz, Kosten und Gewinn der letzten Tage">${s}</svg>`;
   }
   const br = last ? last.br : L.exp;
-  const names = { salary: 'Gehälter', maint: 'Wartung', fuel: 'Kraftstoff & Energie', rent: 'Lagermiete', power: 'Strom', ins: 'Versicherung', repair: 'Reparaturen', interest: 'Kreditzinsen', tax: 'Steuern (15 % auf Gewinn)', other: 'Sonstiges' };
+  const names = { salary: 'Gehälter', maint: 'Wartung', fuel: 'Kraftstoff & Energie', rent: 'Lagermiete', power: 'Strom', ins: 'Versicherung', repair: 'Reparaturen', interest: 'Kreditzinsen', tax: 'Steuern (15 % auf Gewinn)', prod: 'Rohstoffe für Produktion', fines: 'Strafen & Bestechung', other: 'Sonstiges' };
   const ml = maxLoan();
   return `<h1>Finanzen</h1>
   <div class="kpis">
@@ -2016,7 +2243,7 @@ function vCompany() {
   </div>`;
 }
 function vMore() {
-  return `<h1>Mehr</h1><div class="more">${TABS.filter(t => t.more).map(t => `<button class="tile" data-act="tab" data-a="${t.id}">${ic(t.ico)}<b>${t.n}</b>${tabDot(t.id) ? '<span class="dot"></span>' : ''}<span class="sub">${{ team: `${S.staff.length} Personen`, contracts: `${S.contracts.active.length} aktiv`, research: S.research.cur ? RS[S.research.cur.id].n : 'Kein Projekt', finance: money(valuation()) + ' Wert', goals: `${claimableCount()} abholbar`, rivals: `${Math.round(share('hh') * 100)} % in Hamburg`, company: `${myRank()}. Platz weltweit` }[t.id]}</span></button>`).join('')}</div>`;
+  return `<h1>Mehr</h1><div class="more">${TABS.filter(t => t.more).map(t => `<button class="tile" data-act="tab" data-a="${t.id}">${ic(t.ico)}<b>${t.n}</b>${tabDot(t.id) ? '<span class="dot"></span>' : ''}<span class="sub">${{ team: `${S.staff.length} Personen`, contracts: `${S.contracts.active.length} aktiv`, research: S.research.cur ? RS[S.research.cur.id].n : 'Kein Projekt', finance: money(valuation()) + ' Wert', goals: `${claimableCount()} abholbar`, rivals: `${Math.round(share('hh') * 100)} % in Hamburg`, prod: `${S.factories.length} ${S.factories.length === 1 ? 'Fabrik' : 'Fabriken'}`, under: stage() < 2 ? 'ab Stufe 2' : `Fahndung ${Math.round(S.heat)} %`, company: `${myRank()}. Platz weltweit` }[t.id]}</span></button>`).join('')}</div>`;
 }
 
 /* ---------- modals ---------- */
@@ -2030,7 +2257,9 @@ function renderModal() {
     const E = EVENTS[S.ev.cur.id]; const p = S.ev.cur.p;
     body = `<div class="row"><div class="ico">${ic('bolt')}</div><div class="grow"><div class="sub">Ereignis</div><div class="ttl" style="font-size:19px;white-space:normal">${E.title}</div></div></div><p>${esc(E.text(p))}</p><div class="choice">${E.choices(p).map((c, i) => `<button class="btn ${i ? 's' : ''}" data-act="evchoice" data-a="${i}">${esc(c.t)}<small>${esc(c.s)}</small></button>`).join('')}</div>`;
   } else if (M.type === 'event') { U.modal = null; return renderModal(); }
-  else if (M.type === 'stage') {
+  else if (M.type === 'win') {
+    body = `<div class="sub">Endkampf gewonnen</div><h1>Alleinherrscher</h1><p>Alle Konkurrenten gehören jetzt ${esc(S.name)}. Du kontrollierst die Logistik der Welt. Mit dem Börsengang kannst du mit dauerhaftem Bonus neu angreifen.</p>${btn('Zur Firma', 'win', '', 'w')}`;
+  } else if (M.type === 'stage') {
     const s = STAGES[M.st];
     body = `<div class="sub">Neue Unternehmensstufe</div><h1>${M.st} · ${s.n}</h1><div class="steps">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= M.st ? 'on' : ''}"></i>`).join('')}</div><p>Freigeschaltet:</p><div class="chips">${s.unlock.map(u => `<span class="chip o">${esc(u)}</span>`).join('')}</div>${btn('Weiter', 'close', '', 'w')}`;
   } else if (M.type === 'offline') {
@@ -2064,7 +2293,7 @@ function renderModal() {
 }
 
 /* ---------- main render ---------- */
-const VIEWS = { rivals: vRivals, hq: vHQ, wh: vWH, fleet: vFleet, team: vTeam, map: vMap, contracts: vContracts, research: vResearch, finance: vFinance, goals: vGoals, company: vCompany, more: vMore };
+const VIEWS = { prod: vProd, under: vUnder, rivals: vRivals, hq: vHQ, wh: vWH, fleet: vFleet, team: vTeam, map: vMap, contracts: vContracts, research: vResearch, finance: vFinance, goals: vGoals, company: vCompany, more: vMore };
 function render() {
   renderHUD(); renderNav();
   patch(document.getElementById('view'), (VIEWS[U.tab] || vHQ)());
@@ -2086,6 +2315,13 @@ const ACT = {
   tutskip() { S.tut = 99; },
   auto(a) { if (a === 'all') { const on = !AP_KEYS.every(([k]) => S.auto[k]); for (const [k] of AP_KEYS) S.auto[k] = on ? 1 : 0; toast(on ? 'Autopilot komplett eingeschaltet.' : 'Autopilot ausgeschaltet. Du steuerst selbst.', on ? 'g' : ''); } else S.auto[a] = S.auto[a] ? 0 : 1; },
   speed(a) { S.speed = +a; },
+  buildfac(a) { const [t, c] = a.split(':'); buildFactory(t, c); },
+  upfac(a) { upgradeFactory(a); },
+  factarget(a) { const [id, c] = a.split(':'); const f = S.factories.find(x => x.id === id); if (f) f.target = c; },
+  smuggle(a) { acceptSmuggle(a); },
+  bribe() { bribe(); },
+  mapbig() { U.mapBig = !U.mapBig; },
+  win() { U.modal = null; U.tab = 'company'; },
   campaign(a) { campaign(a); },
   pricewar(a) { priceWar(a); },
   takeover(a) { const x = S.rivals.find(r => r.id === a); if (x) U.modal = { type: 'confirm', title: `${RV[a].n} übernehmen?`, text: `Kaufpreis ${money(takeoverPrice(x))}. Ihre Kunden und Städte gehen an dich, der Konkurrent verschwindet.`, ok: 'Übernehmen', act: 'takeoverok', id: a }; },

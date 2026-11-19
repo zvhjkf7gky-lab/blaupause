@@ -67,7 +67,7 @@ h1{font-family:var(--f-disp);font-weight:800;font-size:30px;letter-spacing:.01em
 .card.hot{border-color:var(--orange)}
 .card.dim{opacity:.55}
 .row{display:flex;align-items:center;gap:10px;min-width:0}
-.row.sb{justify-content:space-between}
+.row.sb{justify-content:space-between;flex-wrap:wrap}
 .grow{flex:1;min-width:0}
 .ttl{font-weight:700;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .sub{font-size:12.5px;color:var(--mute)}
@@ -106,7 +106,7 @@ h1{font-family:var(--f-disp);font-weight:800;font-size:30px;letter-spacing:.01em
 .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:11px 12px}
 .kpi .l{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
-.kpi .v{font-family:var(--f-disp);font-weight:800;font-size:24px;font-variant-numeric:tabular-nums;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .v{font-family:var(--f-disp);font-weight:800;font-size:clamp(18px,5.2vw,24px);font-variant-numeric:tabular-nums;margin-top:2px;overflow-wrap:anywhere;line-height:1.1}
 .empty{border:1px dashed var(--line);border-radius:14px;padding:16px;color:var(--mute);font-size:14px;text-align:center}
 /* scene */
 .scene{position:relative;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:#2f4a3e;height:clamp(230px,44vh,440px)}
@@ -137,7 +137,7 @@ h1{font-family:var(--f-disp);font-weight:800;font-size:30px;letter-spacing:.01em
 .choice .btn small{display:block;font-weight:500;opacity:.8;font-size:12.5px}
 textarea{width:100%;min-height:110px;background:#0b1830;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
 input[type=text]{width:100%;background:#0b1830;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:16px}
-.toasts{position:fixed;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 70px);z-index:30;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(92vw,440px)}
+.toasts{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 72px);z-index:30;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(92vw,440px)}
 .toast{background:rgba(14,28,52,.96);border:1px solid var(--line);border-left:4px solid var(--orange);border-radius:10px;padding:9px 12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.35);animation:tin .25s ease;width:100%}
 .toast.g{border-left-color:var(--good)} .toast.r{border-left-color:var(--bad)} .toast.y{border-left-color:var(--warn)}
 .float{position:fixed;z-index:25;pointer-events:none;font-family:var(--f-disp);font-weight:800;font-size:20px;color:var(--good);text-shadow:0 2px 6px rgba(0,0,0,.5);animation:flt 1.3s ease-out forwards}
@@ -371,8 +371,9 @@ function initComps() { return [{ n: 'Nordwind Cargo', v: 2e6, g: .012 }, { n: 'A
 
 function newGame(keep) {
   S = {
-    v: 1, name: keep ? keep.name : 'Elbe Logistik', money: 5000, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
-    stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0 },
+    v: 2, name: keep ? keep.name : 'Elbe Logistik', money: 5000, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
+    stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0, tenders: 0, takeovers: 0, campaigns: 0 },
+    rivals: initRivals(), boost: {}, war: {}, tenders: [], tenderT: 2, news: [], stageMax: 1,
     markets: { hh: 1 }, branches: { hh: 1 },
     warehouses: [{ id: 'w1', city: 'hh', name: 'Zentrallager Hamburg', m: { size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, inv: 0 }],
     vehicles: [{ id: 'v1', type: 'van', name: 'Lieferwagen 1', cond: 100, up: { spd: 0, cap: 0 }, driver: 'me', state: 'idle' }],
@@ -382,7 +383,7 @@ function newGame(keep) {
     contracts: { offers: [], active: [], refresh: 0 },
     fin: { today: ledger(), hist: [] }, loan: 0, fuel: 1, fx: [],
     ev: { next: 140, cur: null }, missions: {}, ach: keep ? keep.ach : {}, comps: initComps(),
-    auto: keep && keep.auto ? keep.auto : { accept: 1, dispatch: 1, care: 1, events: 1, research: 1, build: 1 }, speed: keep && keep.speed ? keep.speed : 3, apT: 0,
+    auto: keep && keep.auto ? keep.auto : { accept: 1, dispatch: 1, care: 1, events: 1, research: 0, build: 0 }, speed: keep && keep.speed ? keep.speed : 1, apT: 0,
     prestige: keep ? keep.prestige : { shares: 0, count: 0 }, tut: keep ? 9 : 0, nid: 10, lastSave: Date.now(), lastStage: 1,
   };
   for (let i = 0; i < 3; i++) S.board.push(genOrder());
@@ -391,9 +392,16 @@ const nid = p => p + (S.nid++);
 
 /* ---------- derived values ---------- */
 const has = r => !!S.research.done[r];
-function stage() { let s = 1; for (let i = 2; i <= 5; i++) { const d = STAGES[i]; if (S.level >= d.lvl && (!d.research || has(d.research))) s = i; else break; } return s; }
+const GOALS = {
+  2: { t: '50 Aufträge ausliefern', v: () => S.stats.orders, g: 50 },
+  3: { t: 'Marktanteil in Hamburg über 50 %', v: () => Math.round(share('hh') * 100), g: 51, unit: ' %' },
+  4: { t: 'Eine Ausschreibung gewinnen', v: () => S.stats.tenders || 0, g: 1 },
+  5: { t: 'Einen Konkurrenten übernehmen', v: () => S.stats.takeovers || 0, g: 1 },
+};
+function stageReady(i) { const d = STAGES[i], G = GOALS[i]; return S.level >= d.lvl && (!d.research || has(d.research)) && (!G || G.v() >= G.g); }
+function stage() { let s = S.stageMax || 1; while (s < 5 && stageReady(s + 1)) s++; if (s > (S.stageMax || 1)) S.stageMax = s; return s; }
 function levelBonus(l) { return Math.round(500 * Math.pow(1.65, l - 2) / 10) * 10; }
-function xpNeed(l) { return Math.round(70 * Math.pow(1.42, l - 1)); }
+function xpNeed(l) { return Math.round(90 * Math.pow(1.45, l - 1)); }
 function fx(k) { let m = 1; for (const f of S.fx) if (f.k === k) m *= f.m; return m; }
 function prestigeMult() { return 1 + S.prestige.shares * 0.02; }
 function whCap(w) { const m = w.m; return Math.round((40 + m.shelves * 22) * (1 + (m.size - 1) * 0.65) * (m.mega ? 3 : 1)); }
@@ -416,7 +424,7 @@ function travelMult() { return (has('routes') ? .9 : 1) * (has('ai_routes') ? .8
 function researchSpeed() { return (1 + lvlSum('specialist', .15, .5)) * prestigeMult(); }
 function payMult() { return (1 + S.rep / 250) * (has('tracking') ? 1.1 : 1) * (1 + lvlSum('manager', .03, 1)) * prestigeMult() * fx('pay'); }
 function boardMax() { return Math.min(18, 3 + Math.floor(S.level / 1.5) + Math.min(5, Object.keys(S.markets).length - 1)); }
-function spawnInterval() { return Math.max(.6, 7.5 / (1 + Object.keys(S.markets).length * .12 + Object.keys(S.branches).length * .2 + (S.level - 1) * .06 + S.rep / 120)) / fx('spawn'); }
+function spawnInterval() { return Math.max(.6, 7.5 / (1 + Object.keys(S.markets).length * .12 + Object.keys(S.branches).length * .2 + (S.level - 1) * .06 + S.rep / 120)) / fx('spawn') / (.5 + avgShare()); }
 function driverOf(v) { return v.driver ? S.staff.find(e => e.id === v.driver) : null; }
 function needsDriver(v) { return !VT[v.type].nodriver && !has('autonomous'); }
 function vSpeed(v) { const d = driverOf(v); return VT[v.type].speed * (1 + .1 * v.up.spd) * (d ? 1 + .04 * (d.lvl - 1) : 1); }
@@ -471,7 +479,7 @@ function earn(a) { S.money += a; S.fin.today.rev += a; S.stats.rev += a; }
 function tryBuy(cost, what) { if (S.money < cost) { toast(`Zu wenig Geld für ${what}. Es fehlen ${money(cost - S.money)}.`, 'r'); return false; } spend(cost); return true; }
 function addXp(x) {
   S.xp += x;
-  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g', true); }
+  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g'); }
   const st = stage();
   if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; }
 }
@@ -486,7 +494,7 @@ function estSpeed(tier) {
 }
 function genOrder(opt = {}) {
   const cities = Object.keys(S.markets);
-  const cid = opt.city || wpick(cities, c => c === 'hh' ? 3 : (S.branches[c] ? 2 : 1.3));
+  const cid = opt.city || wpick(cities, c => (c === 'hh' ? 3 : (S.branches[c] ? 2 : 1.3)) * (.25 + share(c)) * (S.war[c] > S.time ? 1.5 : 1));
   const types = CTYPES.filter(t => S.rep >= t.rep);
   const ct = opt.ct ? CT[opt.ct] : wpick(types, t => t.w);
   const tier = orderTier(cid), geo = geoTier(cid);
@@ -495,7 +503,7 @@ function genOrder(opt = {}) {
   const cold = opt.cold != null ? opt.cold : (has('cold') && ct.cold && Math.random() < .35);
   const express = opt.express != null ? opt.express : (has('express') && !cold && Math.random() < .2);
   const dist = tier === 1 ? rnd(4, 35) : (S.branches[cid] ? rnd(4, 35) : nearestBranchDist(cid) * (tier >= 5 ? 1.1 : 1.25));
-  const pay = Math.round((BASE[geo] + pk * RATE[geo]) * (tier < geo ? .75 : 1) * (express ? 1.6 : 1) * (cold ? 1.45 : 1) * ct.pay * payMult() * (opt.payMult || 1));
+  const pay = Math.round((BASE[geo] + pk * RATE[geo]) * (tier < geo ? .75 : 1) * (express ? 1.6 : 1) * (cold ? 1.45 : 1) * ct.pay * payMult() * cityPay(cid) * (opt.payMult || 1));
   const est = 4 + 6 * Math.pow(dist / estSpeed(tier), .75);
   let win = 45 + pk / Math.max(.6, sortRate()) * 1.6 + est * 3 + (tier >= 5 ? 30 : 0);
   if (express) win *= .6;
@@ -604,7 +612,8 @@ function step(dt) {
   for (const e of S.staff) if (!e.founder || e.lvl < 5) e.xp = Math.min(staffNeed(e), e.xp + dt);
   // events
   if (!S.ev.cur) { S.ev.next -= dt; if (S.ev.next <= 0) { triggerEvent(); S.ev.next = rnd(120, 210); } }
-  S.apT += dt; if (S.apT >= 1) { S.apT -= 1; autopilot(); }
+  S.apT += dt; if (S.apT >= 1) { S.apT -= 1; autopilot(); const st = stage(); if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; } }
+  if (S.tenders.length) tendersTick();
   if (S.dayT >= DAY) endDay();
 }
 function deliver(tr) {
@@ -624,7 +633,7 @@ function completeOrder(o) {
   addXp(5 + o.pk * .5 * o.tier);
   if (o.contract) { const c = S.contracts.active.find(c => c.id === o.contract); if (c) { c.done++; if (o.late) c.late++; } }
   if (o.special) { addRep(3); toast(`Sondermission erfüllt: ${o.cust}`, 'g'); }
-  floatText((o.late ? '' : '+') + money(o.pay * (o.late ? .5 : 1)), o.late ? 'var(--warn)' : 'var(--good)');
+  if (o.manual) floatText('+' + money(o.pay * (o.late ? .5 : 1)), o.late ? 'var(--warn)' : 'var(--good)');
 }
 function finishTrip(tr) {
   S.trips = S.trips.filter(t => t !== tr);
@@ -664,7 +673,7 @@ function endDay() {
   if (S.fin.hist.length > 30) S.fin.hist.shift();
   S.day++; S.dayT -= DAY; S.fin.today = ledger();
   S.fuel = clamp(S.fuel * rnd(.96, 1.05), .7, 1.6);
-  for (const c of S.comps) c.v *= 1 + c.g * rnd(.5, 1.5);
+  rivalsDay();
   if (S.day % 2 === 0) S.cand = {};
   // contracts
   for (const c of S.contracts.active) {
@@ -676,7 +685,7 @@ function endDay() {
   if (S.day >= S.contracts.refresh) genOffers();
   const last = S.fin.hist[S.fin.hist.length - 1];
   toast(`Tag ${last.day} abgeschlossen: ${last.profit >= 0 ? 'Gewinn' : 'Verlust'} ${money(last.profit)}`, last.profit >= 0 ? 'g' : 'r');
-  if (S.money < 0) toast('Dein Konto ist im Minus. Nimm einen Kredit auf oder senke die Kosten.', 'r');
+  if (S.money < 0) toast('Dein Konto ist im Minus. Nimm einen Kredit auf oder senke die Kosten.', 'r', true);
 }
 
 /* ---------- contracts ---------- */
@@ -850,7 +859,7 @@ function assetValue() { let v = 0; for (const x of S.vehicles) v += vValue(x); f
 function maxLoan() { return Math.max(10000, Math.round(assetValue() * .6 / 1000) * 1000); }
 function takeLoan(a) { a = Math.min(a, maxLoan() - S.loan); if (a <= 0) return toast('Kreditrahmen ausgeschöpft.', 'y'); S.loan += a; S.money += a; toast(`Kredit über ${money(a)} aufgenommen. Zins 0,8 % pro Tag.`); }
 function repay(a) { a = Math.min(a, S.loan, Math.max(0, S.money)); if (a <= 0) return toast('Nichts zu tilgen oder zu wenig Geld.', 'y'); S.loan -= a; S.money -= a; toast(`${money(a)} getilgt.`, 'g'); }
-function rankList() { const me = { n: S.name, v: valuation(), me: 1 }; return [...S.comps, me].sort((a, b) => b.v - a.v); }
+function rankList() { const me = { n: S.name, v: valuation(), me: 1 }; return [...S.rivals.filter(x => !x.gone).map(x => ({ n: RV[x.id].n, v: x.v, id: x.id })), me].sort((a, b) => b.v - a.v); }
 function myRank() { return rankList().findIndex(x => x.me) + 1; }
 
 /* ---------- events ---------- */
@@ -914,7 +923,7 @@ const EVENTS = {
     ],
   },
   pricewar: {
-    ok: () => stage() >= 2, make: () => ({ comp: pick(S.comps).n, cost: Math.round(800 + avgRev() * .3) }),
+    ok: () => stage() >= 2 && activeRivals().length > 0, make: () => ({ comp: RV[pick(activeRivals()).id].n, cost: Math.round(800 + avgRev() * .3) }),
     title: 'Preiskampf', text: p => `${p.comp} unterbietet deine Preise in der Region.`,
     choices: p => [
       { t: 'Preise senken', s: 'Erlöse −15 % für zwei Tage, Ruf +1', f() { addFx('pay', .85, DAY * 2, 'Preiskampf'); addRep(1); } },
@@ -929,6 +938,26 @@ const EVENTS = {
     choices: p => [
       { t: 'Mission übernehmen', s: `${money(p.o.pay)} · ${num(p.o.pk)} Pakete · Ruf +3 bei Erfolg`, f() { if (!canStore(p.o.pk)) return toast('Dafür ist das Lager zu voll.', 'r'); p.o.special = 1; p.o.id = nid('o'); admit(p.o); } },
       { t: 'Ablehnen', s: 'Ruf −1', f() { addRep(-1); } },
+    ],
+  },
+  rival_push: {
+    rival: 1,
+    ok: () => stage() >= 2 && activeRivals().length > 0,
+    make() { const x = pick(activeRivals()); const cs = Object.keys(S.markets); const city = cs.sort((a, b) => share(b) - share(a))[0]; x.pres[city] = Math.min(9, (x.pres[city] || 0) + 1.5); return { r: x.id, city, cost: campaignCost(city) }; },
+    title: 'Angriff der Konkurrenz', text: p => `${RV[p.r].n} wirbt in ${CITY[p.city].n} mit Kampfpreisen um deine Kunden. Dein Marktanteil sinkt auf ${Math.round(share(p.city) * 100)} %.`,
+    choices: p => [
+      { t: 'Mit Werbekampagne kontern', s: `Kostet ${money(p.cost)}, Marktanteil steigt`, f() { if (S.money >= p.cost) { spend(p.cost); S.boost[p.city] = (S.boost[p.city] || 0) + 1.6; } } },
+      { t: 'Preiskampf starten', s: 'Drei Tage −20 % Erlös dort, der Rivale verliert Kunden', f() { priceWar(p.city); } },
+      { t: 'Nichts tun', s: 'Der Rivale behält die Kunden', f() {} },
+    ],
+  },
+  poach: {
+    ok: () => stage() >= 2 && activeRivals().length > 0 && S.staff.some(e => !e.founder && e.lvl >= 2),
+    make() { const e = S.staff.filter(e => !e.founder).sort((a, b) => b.lvl - a.lvl)[0]; return { e: e.id, name: e.name, r: pick(activeRivals()).id, cost: Math.round(e.salary * .25) }; },
+    title: 'Abwerbeversuch', text: p => `${RV[p.r].n} will ${p.name} mit einem besseren Gehalt abwerben.`,
+    choices: p => [
+      { t: 'Gehalt erhöhen', s: `+${money(p.cost)} pro Tag, ${p.name} bleibt`, f() { const e = S.staff.find(x => x.id === p.e); if (e) e.salary += p.cost; } },
+      { t: 'Gehen lassen', s: `${p.name} wechselt zur Konkurrenz`, f() { const e = S.staff.find(x => x.id === p.e); if (e) { const v = S.vehicles.find(v => v.driver === e.id); if (v && v.state === 'idle') v.driver = null; if (!v || v.state === 'idle') S.staff = S.staff.filter(x => x !== e); } } },
     ],
   },
   opportunity: {
@@ -1030,6 +1059,159 @@ function doPrestige() {
 }
 
 
+
+/* ---------- rivals, market share, tenders ---------- */
+const RIVALS = [
+  { id: 'nw', n: 'Nordwind Cargo', col: '#5aaeff', home: 'hh', v: 150000, agg: 1, st: 1, start: 4, tag: 'Platzhirsch in Hamburg' },
+  { id: 'at', n: 'Atlas Freight', col: '#b48cff', home: 'be', v: 2e6, agg: .9, st: 2, start: 3, tag: 'Aggressiv im Osten' },
+  { id: 'me', n: 'Meridian Logistics', col: '#2fd3b0', home: 'rtm', v: 25e6, agg: .8, st: 3, start: 3, tag: 'Hafen-Spezialist' },
+  { id: 'pl', n: 'Pacific Line Group', col: '#ffc23d', home: 'sha', v: 250e6, agg: .8, st: 4, start: 4, tag: 'Asiens Seefracht-Riese' },
+  { id: 'ob', n: 'Orbis Express', col: '#ff6b8a', home: 'nyc', v: 1.5e9, agg: .7, st: 4, start: 4, tag: 'Weltmarktführer' },
+];
+const RV = Object.fromEntries(RIVALS.map(r => [r.id, r]));
+function initRivals() { return RIVALS.map(r => ({ id: r.id, v: r.v, pres: { [r.home]: r.start }, gone: 0 })); }
+function stg() { return S.stageMax || 1; }
+function activeRivals() { return S.rivals.filter(x => !x.gone && stg() >= RV[x.id].st); }
+function playerStr(cid) { if (!S.markets[cid]) return 0; return 1 + (S.branches[cid] ? 2 : 0) + S.rep / 25 + (S.boost[cid] || 0); }
+function rivalStr(cid) { let t = 0; for (const x of S.rivals) if (!x.gone && stg() >= RV[x.id].st) t += x.pres[cid] || 0; return t; }
+function share(cid) { const p = playerStr(cid); if (!p) return 0; return p / (p + rivalStr(cid)); }
+function avgShare() { const c = Object.keys(S.markets); return c.length ? c.reduce((a, x) => a + share(x), 0) / c.length : 1; }
+function cityPay(cid) { return (.85 + .3 * share(cid)) * (S.war[cid] > S.time ? .8 : 1); }
+function campaignCost(cid) { return Math.round((MARKET_COST[CITY[cid].st] || 1500) * .4 + 800 + avgRev() * .5); }
+function takeoverPrice(x) { return Math.round(x.v * .5); }
+function canTakeover(x) { return valuation() >= x.v * 1.2; }
+function campaign(cid) {
+  if (!S.markets[cid]) return;
+  const c = campaignCost(cid); if (!tryBuy(c, 'die Werbekampagne')) return;
+  S.boost[cid] = (S.boost[cid] || 0) + 1.5; S.stats.campaigns = (S.stats.campaigns || 0) + 1;
+  toast(`Werbekampagne in ${CITY[cid].n} läuft. Marktanteil jetzt ${Math.round(share(cid) * 100)} %.`, 'g');
+}
+function priceWar(cid) {
+  if (!S.markets[cid] || S.war[cid] > S.time) return;
+  S.war[cid] = S.time + DAY * 3;
+  toast(`Preiskampf in ${CITY[cid].n}: drei Tage −20 % Erlös, aber die Konkurrenz verliert Kunden.`, 'y');
+}
+function takeover(id) {
+  const x = S.rivals.find(r => r.id === id); if (!x || x.gone) return;
+  if (!canTakeover(x)) return toast(`Dein Firmenwert muss mindestens ${money(x.v * 1.2)} betragen.`, 'y');
+  const price = takeoverPrice(x); if (!tryBuy(price, 'die Übernahme')) return;
+  x.gone = 1; S.stats.takeovers = (S.stats.takeovers || 0) + 1;
+  for (const c in x.pres) { if (!S.markets[c] && !cityLock(c)) S.markets[c] = 1; S.boost[c] = (S.boost[c] || 0) + x.pres[c] * .7; }
+  addRep(5); addXp(price / 200);
+  toast(`${RV[id].n} gehört jetzt dir! Ihre Kunden wechseln zu ${S.name}.`, 'g', true);
+}
+function rivalsDay() {
+  const st = stage();
+  for (const x of S.rivals) {
+    if (x.gone || st < RV[x.id].st) continue;
+    const R = RV[x.id];
+    // expand into a city near home or where the player is strong
+    if (Math.random() < .55 * R.agg) {
+      const pool = CITIES.filter(c => c.st <= Math.max(st, R.st) + 1);
+      const c = wpick(pool, c => (x.pres[c.id] ? 2 : 1) * (S.markets[c.id] ? 1.5 + share(c.id) * 2 : .6) / (1 + km(CITY[R.home], c) / 800));
+      x.pres[c.id] = Math.min(7, (x.pres[c.id] || 0) + rnd(.25, .6));
+    }
+    let tp = 0; for (const c in x.pres) { if (S.war[c] > S.time) x.pres[c] = Math.max(0, x.pres[c] - .6); tp += x.pres[c]; }
+    x.v *= 1 + .004 + Math.min(tp, 15) * .0002;
+  }
+  for (const c in S.boost) S.boost[c] *= .97;
+  // tenders
+  S.tenderT--;
+  if (st >= 2 && S.tenderT <= 0 && S.tenders.length < 2) { genTender(); S.tenderT = rint(2, 4); }
+}
+function genTender() {
+  const cities = Object.keys(S.markets); const city = wpick(cities, c => 1 + rivalStr(c));
+  const tier = orderTier(city), geo = geoTier(city);
+  const ct = pick(CTYPES.filter(t => t.size >= 1 && S.rep + 25 >= t.rep)) || CT.web;
+  const [a, b] = SIZE[geo];
+  const per = Math.round(rnd(a, b) * ct.size * rnd(1.5, 2.2) * (1 + stage() * .15));
+  const days = rint(4, 6 + stage());
+  const rivals = S.rivals.filter(x => !x.gone && stg() >= RV[x.id].st && (x.pres[city] || 0) > 0).map(x => x.id);
+  if (!rivals.length) { const any = activeRivals(); if (any.length) rivals.push(pick(any).id); }
+  const rate = RATE[geo] * 1.35 * (tier < geo ? .8 : 1);
+  S.tenders.push({ id: nid('a'), cust: custName(ct.id), ct: ct.id, city, per, days, tier, geo, cold: false, rate, bonus: Math.round(per * days * rate * .5 * payMult()), penalty: Math.round(per * days * rate * .2), minRep: 0, ends: S.time + DAY * 1.5, bid: null, rivals });
+  toast(`Neue Ausschreibung: ${per} Pakete pro Tag nach ${CITY[city].n}. Gebote unter Konkurrenz.`, 'o', true);
+}
+const BIDS = { low: { n: 'Günstig', d: '−15 % Preis', m: .85, f: 1.7 }, mid: { n: 'Marktpreis', d: 'normaler Preis', m: 1, f: 1 }, high: { n: 'Premium', d: '+15 % Preis', m: 1.15, f: .55 } };
+function tenderChance(t, bid) {
+  const ps = (share(t.city) + .15) * (.6 + S.rep / 100) * BIDS[bid].f;
+  let rs = 0; for (const id of t.rivals) { const x = S.rivals.find(r => r.id === id); if (x && !x.gone) rs += .35 + (x.pres[t.city] || 0) / 6; }
+  return rs ? ps / (ps + rs) : 1;
+}
+function placeBid(id, bid) { const t = S.tenders.find(x => x.id === id); if (!t) return; t.bid = bid; toast(`Gebot „${BIDS[bid].n}“ für ${t.cust} abgegeben.`, 'g'); }
+function tendersTick() {
+  for (const t of S.tenders.slice()) {
+    if (S.time < t.ends) continue;
+    S.tenders = S.tenders.filter(x => x !== t);
+    if (!t.bid) continue;
+    if (Math.random() < tenderChance(t, t.bid)) {
+      const k = Object.assign({}, t, { rate: t.rate * BIDS[t.bid].m, daysLeft: t.days, total: 0, done: 0, late: 0, failed: 0, tender: 1 });
+      S.contracts.active.push(k); k.daysLeft--; spawnContractOrder(k);
+      S.stats.tenders = (S.stats.tenders || 0) + 1; addRep(2);
+      toast(`Ausschreibung gewonnen! ${t.cust} liefert ab sofort über dich.`, 'g', true);
+    } else {
+      const wid = t.rivals.length ? pick(t.rivals) : null; const w = wid && S.rivals.find(x => x.id === wid);
+      if (w) w.pres[t.city] = Math.min(9, (w.pres[t.city] || 0) + .8);
+      toast(`Ausschreibung verloren${w ? ` – ${RV[w.id].n} bekommt den Zuschlag` : ''}.`, 'r', true);
+    }
+  }
+}
+function shareBar(cid) {
+  const p = playerStr(cid), segs = [{ c: 'var(--orange)', v: p, n: S.name }];
+  for (const x of S.rivals) if (!x.gone && stg() >= RV[x.id].st && (x.pres[cid] || 0) > .05) segs.push({ c: RV[x.id].col, v: x.pres[cid], n: RV[x.id].n });
+  const tot = segs.reduce((a, b) => a + b.v, 0) || 1;
+  return `<div style="display:flex;height:10px;border-radius:5px;overflow:hidden;background:#0b1830">${segs.map(g => `<i title="${esc(g.n)}" style="display:block;width:${(g.v / tot * 100).toFixed(1)}%;background:${g.c}"></i>`).join('')}</div>`
+    + `<div class="legend">${segs.map(g => `<span><i style="background:${g.c}"></i>${esc(g.n)} ${Math.round(g.v / tot * 100)} %</span>`).join('')}</div>`;
+}
+function shareBlock(cid) {
+  if (!S.markets[cid] && !rivalStr(cid)) return '';
+  const war = S.war[cid] > S.time;
+  return `<h2>Marktanteile</h2>${shareBar(cid)}${S.markets[cid] ? `<div class="row" style="gap:6px;flex-wrap:wrap">${btn('Werbekampagne · ' + money(campaignCost(cid)), 'campaign', cid, 'sm', S.money < campaignCost(cid))}${war ? `<span class="chip y">Preiskampf noch ${dur(S.war[cid] - S.time)}</span>` : btn('Preiskampf starten', 'pricewar', cid, 's sm')}</div>` : ''}`;
+}
+function vRivals() {
+  const list = rankList(); const me = list.findIndex(x => x.me) + 1;
+  const markets = Object.keys(S.markets).sort((a, b) => share(a) - share(b));
+  const tl = S.tenders;
+  return `<div class="row sb"><h1>Konkurrenz</h1><span class="chip o">${me}. Platz</span></div>
+  <div class="sub">Konkurrenten erobern deine Städte. Wer mehr Marktanteil hat, bekommt mehr und besser bezahlte Aufträge. Wehre dich mit Werbung, Preiskämpfen und Ausschreibungen – und übernimm sie, sobald du groß genug bist.</div>
+  <section class="sec"><div class="sech"><h2>Ausschreibungen</h2><span class="sub">${stage() < 2 ? 'ab Stufe 2' : 'neue alle paar Tage'}</span></div><div class="grid">${tl.length ? tl.map(t => {
+    const capable = S.vehicles.some(v => canServe(v, { tier: t.tier, cold: t.cold, city: t.city }));
+    return `<div class="card ${t.bid ? 'hot' : ''}" data-key="${t.id}">
+      <div class="row"><div class="ico">${ic('doc')}</div><div class="grow"><div class="ttl">${esc(t.cust)}</div><div class="sub">${num(t.per)} Pakete/Tag nach ${esc(CITY[t.city].n)} · ${t.days} Tage · Entscheidung in ${dur(t.ends - S.time)}</div></div></div>
+      <div class="chips">${tierChip(t.tier)}<span class="chip g">Bonus ${money(t.bonus)}</span>${t.rivals.map(id => `<span class="chip" style="color:${RV[id].col}">${esc(RV[id].n)}</span>`).join('')}</div>
+      ${!capable ? '<span class="sub" style="color:var(--warn)">Dir fehlt noch ein passendes Fahrzeug.</span>' : ''}
+      <div class="choice">${Object.keys(BIDS).map(k => `<button class="btn ${t.bid === k ? '' : 's'} sm" data-act="bid" data-a="${t.id}:${k}">${BIDS[k].n} · ${BIDS[k].d}<small>Gewinnchance ca. ${Math.round(tenderChance(t, k) * 100)} %</small></button>`).join('')}</div>
+    </div>`; }).join('') : `<div class="empty">${stage() < 2 ? 'Ausschreibungen gibt es ab Stufe 2.' : 'Gerade keine Ausschreibung. Die nächste kommt bald.'}</div>`}</div></section>
+  <section class="sec"><h2>Rangliste & Übernahmen</h2><div class="list">${list.map((c, i) => {
+    if (!c.me && stg() < RV[c.id].st) return '';
+    if (c.me) return `<div class="lb me" data-key="rv-me"><span class="rk">${i + 1}</span><div class="grow"><div class="ttl">${esc(c.n)}</div><div class="sub">Deine Firma</div></div><span class="num" style="font-weight:700">${money(c.v)}</span></div>`;
+    const x = S.rivals.find(r => r.id === c.id); const R = RV[c.id]; const active = stg() >= R.st; const ok = canTakeover(x);
+    return `<div class="lb" data-key="rv-${c.id}" style="flex-wrap:wrap"><span class="rk" style="color:${R.col}">${i + 1}</span><div class="grow"><div class="ttl">${esc(R.n)}</div><div class="sub">${active ? esc(R.tag) + ' · in ' + Object.keys(x.pres).filter(k => x.pres[k] > .05).length + ' Städten' : 'Noch nicht aktiv'}</div></div><span class="num" style="font-weight:700">${money(c.v)}</span>
+      <div style="flex-basis:100%">${ok ? btn('Übernehmen · ' + money(takeoverPrice(x)), 'takeover', c.id, 'sm w', S.money < takeoverPrice(x)) : `<div class="sub">Übernahme ab ${money(x.v * 1.2)} Firmenwert</div>${bar(valuation() / (x.v * 1.2), 'y')}`}</div></div>`;
+  }).join('')}${list.some(c => !c.me && stg() < RV[c.id].st) ? `<div class="sub">${list.filter(c => !c.me && stg() < RV[c.id].st).length} weitere Konzerne treten in späteren Kapiteln gegen dich an.</div>` : ''}</div></section>
+  <section class="sec"><h2>Deine Märkte</h2><div class="grid">${markets.map(c => `<div class="card" data-key="sh-${c}"><div class="row sb"><div class="ttl">${esc(CITY[c].n)}</div><span class="chip ${share(c) >= .5 ? 'g' : share(c) < .3 ? 'r' : 'y'}">${Math.round(share(c) * 100)} %</span></div>${shareBlock(c).replace('<h2>Marktanteile</h2>', '')}</div>`).join('')}</div></section>`;
+}
+function chapterCard() {
+  const st = stage();
+  if (st >= 5) return '';
+  const n = st + 1, d = STAGES[n], G = GOALS[n];
+  const items = [[`Firmenlevel ${d.lvl}`, S.level, d.lvl, '']];
+  if (d.research) items.push([`Forschung „${RS[d.research].n}“`, has(d.research) ? 1 : 0, 1, '']);
+  if (G) items.push([G.t, G.v(), G.g, G.unit || '']);
+  return `<section class="card" data-key="chapter"><div class="row"><div class="ico">${ic('flag')}</div><div class="grow"><div class="sub">Nächstes Kapitel</div><div class="ttl">${n} · ${d.n}</div></div></div>
+    ${items.map(([t, v, g, u]) => `<div><div class="row sb"><span class="sub" style="color:${v >= g ? 'var(--good)' : 'var(--ink)'}">${v >= g ? '✓ ' : ''}${esc(t)}</span><span class="sub num">${num(Math.min(v, g))}${u} / ${num(g)}${u}</span></div>${bar(v / g, v >= g ? 'g' : '')}</div>`).join('')}
+    ${n === 3 ? `<div class="row sb"><span class="sub">Nordwind Cargo ist dein Rivale in Hamburg.</span>${btn('Konkurrenz', 'tab', 'rivals', 's sm')}</div>` : ''}
+    ${n === 4 || n === 5 ? `<div class="row sb"><span class="sub">${n === 4 ? 'Gebote gibst du unter Konkurrenz ab.' : 'Übernahmen findest du unter Konkurrenz.'}</span>${btn('Konkurrenz', 'tab', 'rivals', 's sm')}</div>` : ''}
+  </section>`;
+}
+function newsCard() {
+  const all = U.newsAll; const list = S.news.slice(0, all ? 40 : 5);
+  if (!list.length) return '';
+  const col = { g: 'var(--good)', r: 'var(--bad)', y: 'var(--warn)', o: 'var(--orange2)' };
+  return `<section class="card" data-key="news"><div class="row sb"><h2>Meldungen</h2>${btn(all ? 'Weniger' : 'Alle', 'newsall', '', 's sm')}</div>
+    <div class="list" style="gap:6px">${list.map((n, i) => `<div class="row" data-key="n${i}" style="align-items:flex-start;gap:8px"><span class="sub num" style="width:44px;flex:none">Tag ${n.d}</span><span style="font-size:13.5px;line-height:1.35;color:${col[n.k] || 'var(--ink)'}">${esc(n.m)}</span></div>`).join('')}</div></section>`;
+}
+
 /* ---------- autopilot ---------- */
 const AP_KEYS = [['accept', 'Aufträge annehmen'], ['dispatch', 'Versenden'], ['care', 'Reparatur & Fahrer'], ['events', 'Ereignisse & Belohnungen'], ['research', 'Forschung'], ['build', 'Ausbau & Einkauf']];
 function apReserve() { const h = S.fin.hist[S.fin.hist.length - 1]; return Math.max(400, h ? h.exp * .8 : 300); }
@@ -1046,8 +1228,10 @@ function autoEvent() {
   const costly = i => /Kostet/.test(ch[i].s);
   if (c.id === 'bigorder' || c.id === 'gov') best = c.p.o && canStore(c.p.o.pk) && S.vehicles.some(v => canServe(v, c.p.o)) ? 0 : 1;
   else if (c.id === 'pricewar') best = apCan(c.p.cost * 3) ? 1 : 0;
+  else if (c.id === 'rival_push') best = apCan(c.p.cost * 2) ? 0 : 2;
+  else if (c.id === 'poach') best = apCan(c.p.cost * 30) ? 0 : 1;
   else { best = ch.findIndex((x, i) => costly(i)); if (best < 0 || !apCan((c.p.cost || 0) * 3)) best = ch.findIndex((x, i) => !costly(i)); if (best < 0) best = 0; }
-  toast(`Ereignis „${EVENTS[c.id].title}“ – Autopilot: ${ch[best].t}`, 'y', true);
+  toast(`${EVENTS[c.id].title}: Autopilot wählt „${ch[best].t}“`, 'y', !!EVENTS[c.id].rival);
   resolveEvent(best);
 }
 function autopilot() {
@@ -1131,9 +1315,9 @@ function autoBuild() {
 function autoPanel() {
   const all = AP_KEYS.every(([k]) => S.auto[k]);
   return `<section class="card" data-key="autopanel">
-    <div class="row sb"><div class="row"><div class="ico">${ic('bolt')}</div><div><div class="ttl">Autopilot ${all ? '<span class="chip g">läuft</span>' : AP_KEYS.some(([k]) => S.auto[k]) ? '<span class="chip y">teilweise</span>' : '<span class="chip">aus</span>'}</div><div class="sub">Deine Firma arbeitet von selbst. Tippe einen Bereich an, um ihn selbst zu steuern.</div></div></div>${btn(all ? 'Alles aus' : 'Alles an', 'auto', 'all', all ? 's sm' : 'sm')}</div>
+    <div class="row sb"><div class="row"><div class="ico">${ic('bolt')}</div><div><div class="ttl">Autopilot ${all ? '<span class="chip g">läuft</span>' : AP_KEYS.some(([k]) => S.auto[k]) ? '<span class="chip g">Routine</span>' : '<span class="chip">aus</span>'}</div><div class="sub">Routine läuft von selbst. Wachstum und Konkurrenzkampf entscheidest du – oder schalte sie dazu.</div></div></div>${btn(all ? 'Alles aus' : 'Alles an', 'auto', 'all', all ? 's sm' : 'sm')}</div>
     <div class="chips">${AP_KEYS.map(([k, n]) => `<button class="chip ${S.auto[k] ? 'g' : ''}" style="border:0;cursor:pointer;min-height:30px" data-act="auto" data-a="${k}">${S.auto[k] ? ic('check') : ic('x')}${n}</button>`).join('')}</div>
-    <div class="row sb"><span class="sub">Spieltempo</span><div class="seg" style="flex:none">${[1, 3, 6, 10].map(x => `<button class="${S.speed === x ? 'on' : ''}" data-act="speed" data-a="${x}">${x}×</button>`).join('')}</div></div>
+    <div class="row sb"><span class="sub">Spieltempo</span><div class="seg" style="flex:none">${[1, 2, 4].map(x => `<button class="${S.speed === x ? 'on' : ''}" data-act="speed" data-a="${x}">${x}×</button>`).join('')}</div></div>
   </section>`;
 }
 
@@ -1148,8 +1332,13 @@ function migrate(o) {
   m.research = Object.assign({ done: {}, cur: null }, o.research || {});
   m.contracts = Object.assign({ offers: [], active: [], refresh: 0 }, o.contracts || {});
   m.prestige = Object.assign({ shares: 0, count: 0 }, o.prestige || {});
-  m.auto = Object.assign({ accept: 1, dispatch: 1, care: 1, events: 1, research: 1, build: 1 }, o.auto || {});
-  m.speed = o.speed || 3;
+  m.auto = Object.assign({ accept: 1, dispatch: 1, care: 1, events: 1, research: 0, build: 0 }, o.auto || {});
+  m.speed = o.speed || 1;
+  if ((o.v || 1) < 2) { m.v = 2; m.speed = 1; m.auto.research = 0; m.auto.build = 0; m.stageMax = o.lastStage || 1; }
+  if (![1, 2, 4].includes(m.speed)) m.speed = 1;
+  if (!o.rivals) m.rivals = initRivals();
+  for (const k of ['boost', 'war']) m[k] = o[k] || {};
+  m.tenders = o.tenders || []; m.news = o.news || [];
   for (const w of m.warehouses) w.m = Object.assign({ size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, w.m);
   return m;
 }
@@ -1287,18 +1476,22 @@ function drawScene(cv, wh, T) {
   const vehAt = (v, x, y, dir) => outs.push({ d: x + y, f: () => drawVeh(v, x, y, dir) });
   const trips = S.trips.filter(t => S.vehicles.find(v => v.id === t.vid && !VT[v.type].nopark));
   const atDock = trips.filter(t => t.phase === 'load' || t.phase === 'queue');
-  atDock.forEach((t, i) => { const v = S.vehicles.find(x => x.id === t.vid); if (i < nd) vehAt(v, docksX[i] + .05, bd + .15, 'y'); else vehAt(v, px0 - 1.1, bd + 1 + (i - nd) * 1.6, 'y'); });
+  atDock.forEach((t, i) => { const v = S.vehicles.find(x => x.id === t.vid); if (i < nd) vehAt(v, docksX[i] + .05, bd + .15, 'y'); });
+  let moving = 0;
   for (const t of trips) {
+    if (moving >= 4) break;
     const v = S.vehicles.find(x => x.id === t.vid); const len = VT[v.type].len;
     let s = -1, back = false;
     if (t.phase === 'out' && t.t < 4) s = t.t / 4;
     if (t.phase === 'back' && t.one - t.t < 4) { s = (t.one - t.t) / 4; back = true; }
     if (s < 0) continue;
+    moving++;
     if (s < .35) { const y = back ? (bd - .5 - len) + (roadY - bd) * (s / .35) : bd + .2 + (roadY - .3 - bd - len) * (s / .35); vehAt(v, back ? px0 - 1.05 : docksX[0] || 1, y, 'y'); }
     else { const x = (back ? px0 - 1.1 : (docksX[0] || 1)) + (s - .35) / .65 * 22; vehAt(v, x, roadY + (back ? .7 : -.35), 'x'); }
   }
   const parked = S.vehicles.filter(v => v.state === 'idle' && !VT[v.type].nopark);
-  parked.slice(0, 15).forEach((v, i) => { const col = i % 5, row = Math.floor(i / 5); vehAt(v, px0 + .25 + col * 1.4, .45 + row * 3.3 * (bd > 6 ? 1 : .8), 'y'); });
+  const pRows = Math.max(1, Math.floor((bd - .5) / 3.3)), pCols = 5;
+  parked.slice(0, pRows * pCols).forEach((v, i) => { const col = i % pCols, row = Math.floor(i / pCols); vehAt(v, px0 + .25 + col * 1.4, .45 + row * 3.3, 'y'); });
   // container yard + ship if port
   if (port) {
     for (let i = 0; i < 10; i++) { const x = px0 + (i % 5) * 1.35, y = bd + .6 + Math.floor(i / 5) * .7; outs.push({ d: x + y, f: () => box(x, y, 0, 1.2, .55, .5 + (i % 3) * .5, ['#ff7a1a', '#2e8c88', '#e8edf3', '#d0632a'][i % 4]) }); }
@@ -1440,8 +1633,13 @@ function morphKids(from, to) {
 function patch(el, html) { const t = document.createElement('template'); t.innerHTML = html; morphKids(el, t.content); }
 
 /* ---------- toasts & floating text ---------- */
-function toast(msg, kind = '', force) { if (U.quiet && !force && kind !== 'r') return; U.toasts.push({ id: Math.random(), msg, kind, t: performance.now() }); if (U.toasts.length > 4) U.toasts.shift(); renderToasts(); }
-function renderToasts() { const now = performance.now(); U.toasts = U.toasts.filter(t => now - t.t < 3600); patch(document.getElementById('toasts'), U.toasts.map(t => `<div class="toast ${t.kind}" data-key="${t.id}">${esc(t.msg)}</div>`).join('')); }
+function toast(msg, kind = '', force) {
+  if (S && S.news) { const last = S.news[0]; if (!last || last.m !== msg) { S.news.unshift({ d: S.day, m: msg, k: kind }); if (S.news.length > 40) S.news.pop(); } }
+  if (!force && !U.userAct) return;
+  if (U.toasts.some(t => t.msg === msg)) return;
+  U.toasts.push({ id: Math.random(), msg, kind, t: performance.now() }); if (U.toasts.length > 2) U.toasts.shift(); renderToasts();
+}
+function renderToasts() { const now = performance.now(); U.toasts = U.toasts.filter(t => now - t.t < 2800); patch(document.getElementById('toasts'), U.toasts.map(t => `<div class="toast ${t.kind}" data-key="${t.id}">${esc(t.msg)}</div>`).join('')); }
 let lastFloat = 0;
 function floatText(txt, color) {
   const now = performance.now(); if (now - lastFloat < 250 || document.hidden) return; lastFloat = now;
@@ -1464,12 +1662,14 @@ const TABS = [
   { id: 'hq', n: 'Zentrale', ico: 'home' }, { id: 'wh', n: 'Lager', ico: 'box' }, { id: 'fleet', n: 'Flotte', ico: 'truck' },
   { id: 'team', n: 'Team', ico: 'users', more: 1 }, { id: 'map', n: 'Karte', ico: 'globe' }, { id: 'contracts', n: 'Verträge', ico: 'doc', more: 1 },
   { id: 'research', n: 'Forschung', ico: 'flask', more: 1 }, { id: 'finance', n: 'Finanzen', ico: 'chart', more: 1 }, { id: 'goals', n: 'Ziele', ico: 'trophy', more: 1 },
+  { id: 'rivals', n: 'Konkurrenz', ico: 'flag', more: 1 },
   { id: 'company', n: 'Firma', ico: 'gear', more: 1 },
 ];
 function tabDot(id) {
   if (id === 'hq') return S.orders.some(o => o.state === 'ready' && o.left > 0 && !dispatchBlock(o)) && !staffOf('dispatcher').length;
   if (id === 'research') return !S.research.cur && RESEARCH.some(r => researchState(r) === 'open' && S.money >= r.cost);
   if (id === 'goals') return claimableCount() > 0;
+  if (id === 'rivals') return S.tenders.some(t => !t.bid) || S.rivals.some(x => !x.gone && canTakeover(x) && S.money >= takeoverPrice(x));
   if (id === 'fleet') return S.vehicles.some(v => v.cond <= 8 || (needsDriver(v) && !driverOf(v)));
   return false;
 }
@@ -1516,8 +1716,9 @@ function vHQ() {
     <div class="lbl">${esc(S.warehouses[0].name)}</div>
     <div class="act">${btn(ic('hand') + 'Mit anpacken', 'help', '', '', U.helpCd > 0 || !S.orders.some(o => o.state === 'sort'))}</div>
   </div>
-  ${autoPanel()}
+  ${chapterCard()}
   ${tut}
+  ${autoPanel()}
   ${fxs ? `<div class="chips">${fxs}</div>` : ''}
   <div class="cols">
     <section class="sec">
@@ -1530,6 +1731,7 @@ function vHQ() {
     <section class="sec">
       <div class="sech"><h2>Neue Aufträge <span class="cnt">${S.board.length}</span></h2>${staffOf('manager').length ? '<span class="chip g">Annahme automatisch</span>' : ''}</div>
       <div class="list">${S.board.length ? S.board.slice().sort((a, b) => a.exp - b.exp).map(boardCard).join('') : '<div class="empty">Neue Anfragen kommen gleich herein.</div>'}</div>
+      ${newsCard()}
     </section>
   </div>`;
 }
@@ -1694,6 +1896,7 @@ function cityPanel(cid) {
       ${mk ? '<span class="chip g">Markt erschlossen</span>' : btn('Markt erschließen · ' + money(MARKET_COST[c.st]), 'market', cid, '', S.money < MARKET_COST[c.st])}
       ${br ? '<span class="chip o">Niederlassung vorhanden</span>' : btn('Niederlassung bauen · ' + money(BRANCH_COST[c.st]), 'branch', cid, 's', !mk || S.money < BRANCH_COST[c.st])}
     </div><div class="sub">Eine Niederlassung bringt ein eigenes Lager. Lieferungen in diese Stadt werden lokal und kurz.</div>`}
+    ${shareBlock(cid)}
   </div>`;
 }
 
@@ -1779,7 +1982,7 @@ function vFinance() {
       <div class="row" style="flex-wrap:wrap;gap:6px">${btn('Tilgen ' + money(Math.min(S.loan, Math.max(0, S.money))), 'repay', String(S.loan), 'sm', S.loan <= 0 || S.money <= 0)}</div>
     </section>
   </div>
-  <section class="sec"><h2>Rangliste der Logistikkonzerne</h2><div class="list">${rankList().map((c, i) => `<div class="lb ${c.me ? 'me' : ''}" data-key="rk-${esc(c.n)}"><span class="rk">${i + 1}</span><div class="grow"><div class="ttl">${esc(c.n)}</div></div><span class="num" style="font-weight:700">${money(c.v)}</span></div>`).join('')}</div></section>`;
+  <section class="sec"><div class="sech"><h2>Rangliste der Logistikkonzerne</h2>${btn('Konkurrenz', 'tab', 'rivals', 's sm')}</div><div class="list">${rankList().map((c, i) => `<div class="lb ${c.me ? 'me' : ''}" data-key="rk-${esc(c.n)}"><span class="rk">${i + 1}</span><div class="grow"><div class="ttl">${esc(c.n)}</div></div><span class="num" style="font-weight:700">${money(c.v)}</span></div>`).join('')}</div></section>`;
 }
 
 function vGoals() {
@@ -1813,7 +2016,7 @@ function vCompany() {
   </div>`;
 }
 function vMore() {
-  return `<h1>Mehr</h1><div class="more">${TABS.filter(t => t.more).map(t => `<button class="tile" data-act="tab" data-a="${t.id}">${ic(t.ico)}<b>${t.n}</b>${tabDot(t.id) ? '<span class="dot"></span>' : ''}<span class="sub">${{ team: `${S.staff.length} Personen`, contracts: `${S.contracts.active.length} aktiv`, research: S.research.cur ? RS[S.research.cur.id].n : 'Kein Projekt', finance: money(valuation()) + ' Wert', goals: `${claimableCount()} abholbar`, company: `${myRank()}. Platz weltweit` }[t.id]}</span></button>`).join('')}</div>`;
+  return `<h1>Mehr</h1><div class="more">${TABS.filter(t => t.more).map(t => `<button class="tile" data-act="tab" data-a="${t.id}">${ic(t.ico)}<b>${t.n}</b>${tabDot(t.id) ? '<span class="dot"></span>' : ''}<span class="sub">${{ team: `${S.staff.length} Personen`, contracts: `${S.contracts.active.length} aktiv`, research: S.research.cur ? RS[S.research.cur.id].n : 'Kein Projekt', finance: money(valuation()) + ' Wert', goals: `${claimableCount()} abholbar`, rivals: `${Math.round(share('hh') * 100)} % in Hamburg`, company: `${myRank()}. Platz weltweit` }[t.id]}</span></button>`).join('')}</div>`;
 }
 
 /* ---------- modals ---------- */
@@ -1861,7 +2064,7 @@ function renderModal() {
 }
 
 /* ---------- main render ---------- */
-const VIEWS = { hq: vHQ, wh: vWH, fleet: vFleet, team: vTeam, map: vMap, contracts: vContracts, research: vResearch, finance: vFinance, goals: vGoals, company: vCompany, more: vMore };
+const VIEWS = { rivals: vRivals, hq: vHQ, wh: vWH, fleet: vFleet, team: vTeam, map: vMap, contracts: vContracts, research: vResearch, finance: vFinance, goals: vGoals, company: vCompany, more: vMore };
 function render() {
   renderHUD(); renderNav();
   patch(document.getElementById('view'), (VIEWS[U.tab] || vHQ)());
@@ -1874,7 +2077,7 @@ const ACT = {
   tab(a) { U.tab = a; U.modal = null; document.getElementById('main').scrollTop = 0; },
   sub(a) { const [k, v] = a.split(':'); U.sub[k] = v; },
   accept(a) { acceptOrder(a); },
-  dispatch(a) { dispatch(S.orders.find(o => o.id === a)); },
+  dispatch(a) { const o = S.orders.find(o => o.id === a); if (o) o.manual = 1; dispatch(o); },
   pickveh(a) { U.modal = { type: 'pickveh', oid: a }; },
   cancel(a) { const o = S.orders.find(x => x.id === a); if (o) U.modal = { type: 'confirm', title: 'Auftrag stornieren?', text: `${o.cust}: ${num(o.pk)} Pakete werden zurückgegeben. Gebühr ${money(cancelFee(o))}, Ruf −2.`, ok: 'Stornieren', act: 'cancelok', danger: 1, id: a }; },
   cancelok() { const id = U.modal && U.modal.id; U.modal = null; cancelOrder(id); },
@@ -1883,6 +2086,12 @@ const ACT = {
   tutskip() { S.tut = 99; },
   auto(a) { if (a === 'all') { const on = !AP_KEYS.every(([k]) => S.auto[k]); for (const [k] of AP_KEYS) S.auto[k] = on ? 1 : 0; toast(on ? 'Autopilot komplett eingeschaltet.' : 'Autopilot ausgeschaltet. Du steuerst selbst.', on ? 'g' : ''); } else S.auto[a] = S.auto[a] ? 0 : 1; },
   speed(a) { S.speed = +a; },
+  campaign(a) { campaign(a); },
+  pricewar(a) { priceWar(a); },
+  takeover(a) { const x = S.rivals.find(r => r.id === a); if (x) U.modal = { type: 'confirm', title: `${RV[a].n} übernehmen?`, text: `Kaufpreis ${money(takeoverPrice(x))}. Ihre Kunden und Städte gehen an dich, der Konkurrent verschwindet.`, ok: 'Übernehmen', act: 'takeoverok', id: a }; },
+  takeoverok() { const id = U.modal && U.modal.id; U.modal = null; takeover(id); },
+  bid(a) { const [id, b] = a.split(':'); placeBid(id, b); },
+  newsall() { U.newsAll = !U.newsAll; },
   selwh(a) { U.wh = +a; },
   mod(a) { const [w, k] = a.split(':'); upgradeMod(+w, k); },
   buyveh(a) { buyVehicle(a); },
@@ -1925,7 +2134,7 @@ const ACT = {
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || !b.dataset.act) return;
   const f = ACT[b.dataset.act]; if (!f) return;
-  f(b.dataset.a || '', e); render();
+  U.userAct = true; try { f(b.dataset.a || '', e); } finally { U.userAct = false; } render();
 });
 // map gestures
 const PT = new Map(); let pinch = null, dragMoved = false;

@@ -247,6 +247,10 @@ const I = {
   flag: '<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',
   factory: '<path d="M3 21V10l5 3v-3l5 3v-3l5 3V4h3v17z"/><path d="M7 17h2M12 17h2M17 17h1"/>',
   mask: '<path d="M3 8c3-2 15-2 18 0 0 6-3 10-9 10S3 14 3 8z"/><path d="M7 11.5h3.5M13.5 11.5H17"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  moon: '<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>',
+  gift: '<rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v8h14v-8M12 8v13M12 8c-2-4-6-4-6-1s6 1 6 1zM12 8c2-4 6-4 6-1s-6 1-6 1z"/>',
+  speaker: '<path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/>',
   expand: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
 };
 const ic = (n, cls = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${I[n] || ''}</svg>`;
@@ -383,6 +387,7 @@ function newGame(keep) {
     stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0, tenders: 0, takeovers: 0, campaigns: 0 },
     rivals: initRivals(), boost: {}, war: {}, tenders: [], tenderT: 2, news: [], stageMax: 1,
     factories: [], sat: {}, heat: 0, under: { offers: [], refresh: 0 }, won: 0,
+    story: { i: 0 }, crisis: null, crisisT: 9, daily: { last: '', streak: 0 }, sound: 1,
     markets: { hh: 1 }, branches: { hh: 1 },
     warehouses: [{ id: 'w1', city: 'hh', name: 'Zentrallager Hamburg', m: { size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, inv: 0 }],
     vehicles: [{ id: 'v1', type: 'van', name: 'Lieferwagen 1', cond: 100, up: { spd: 0, cap: 0 }, driver: 'me', state: 'idle' }],
@@ -485,10 +490,10 @@ function repairCost(v) { return Math.round((100 - v.cond) * VT[v.type].price * .
 /* ---------- money ---------- */
 function spend(a, cat) { S.money -= a; if (cat) S.fin.today.exp[cat] += a; else S.fin.today.inv += a; }
 function earn(a) { S.money += a; S.fin.today.rev += a; S.stats.rev += a; }
-function tryBuy(cost, what) { if (S.money < cost) { toast(`Zu wenig Geld für ${what}. Es fehlen ${money(cost - S.money)}.`, 'r'); return false; } spend(cost); return true; }
+function tryBuy(cost, what) { if (S.money < cost) { toast(`Zu wenig Geld für ${what}. Es fehlen ${money(cost - S.money)}.`, 'r'); return false; } spend(cost); if (U.userAct) sfx('buy'); return true; }
 function addXp(x) {
   S.xp += x;
-  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g'); }
+  while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g'); sfx('level'); }
   const st = stage();
   if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; }
 }
@@ -647,6 +652,7 @@ function completeOrder(o) {
   if (o.contract) { const c = S.contracts.active.find(c => c.id === o.contract); if (c) { c.done++; if (o.late) c.late++; } }
   if (o.special) { addRep(3); toast(`Sondermission erfüllt: ${o.cust}`, 'g'); }
   if (o.own) { const k = o.prod + ':' + o.city; S.sat[k] = Math.max(.35, (S.sat[k] || 1) - o.pk / (PR[o.prod].out * 5)); S.stats.produced = (S.stats.produced || 0) + o.pk; }
+  if (o.manual) sfx('cash');
   if (o.manual) floatText('+' + money(o.pay * (o.late ? .5 : 1)), o.late ? 'var(--warn)' : 'var(--good)');
 }
 function finishTrip(tr) {
@@ -958,7 +964,7 @@ const EVENTS = {
     rival: 1,
     ok: () => stage() >= 2 && activeRivals().length > 0,
     make() { const x = pick(activeRivals()); const cs = Object.keys(S.markets); const city = cs.sort((a, b) => share(b) - share(a))[0]; x.pres[city] = Math.min(9, (x.pres[city] || 0) + 1.5); return { r: x.id, city, cost: campaignCost(city) }; },
-    title: 'Angriff der Konkurrenz', text: p => `${RV[p.r].n} wirbt in ${CITY[p.city].n} mit Kampfpreisen um deine Kunden. Dein Marktanteil sinkt auf ${Math.round(share(p.city) * 100)} %.`,
+    title: 'Angriff der Konkurrenz', text: p => `${RV[p.r].boss}: „${pick(TAUNTS)}“ – ${RV[p.r].n} wirbt in ${CITY[p.city].n} mit Kampfpreisen um deine Kunden. Dein Marktanteil sinkt auf ${Math.round(share(p.city) * 100)} %.`,
     choices: p => [
       { t: 'Mit Werbekampagne kontern', s: `Kostet ${money(p.cost)}, Marktanteil steigt`, f() { if (S.money >= p.cost) { spend(p.cost); S.boost[p.city] = (S.boost[p.city] || 0) + 1.6; } } },
       { t: 'Preiskampf starten', s: 'Drei Tage −20 % Erlös dort, der Rivale verliert Kunden', f() { priceWar(p.city); } },
@@ -993,6 +999,16 @@ const EVENTS = {
     choices: p => [
       { t: 'Preis senken', s: '−20 % Vergütung für den Rest der Laufzeit', f() { const c = S.contracts.active.find(x => x.id === p.c); if (c) c.rate *= .8; } },
       { t: 'Kunde ziehen lassen', s: 'Der Vertrag endet ohne Strafe, Marktanteil sinkt', f() { const c = S.contracts.active.find(x => x.id === p.c); if (c) { S.contracts.active = S.contracts.active.filter(x => x !== c); const x = S.rivals.find(y => y.id === p.r); if (x) x.pres[c.city] = Math.min(8, (x.pres[c.city] || 0) + 1); } } },
+    ],
+  },
+  hostile: {
+    rival: 1,
+    ok: () => Object.keys(S.branches).length > 1 && activeRivals().some(x => x.v > valuation() * 1.5),
+    make() { const x = activeRivals().filter(x => x.v > valuation() * 1.5).sort((a, b) => b.v - a.v)[0]; const c = pick(Object.keys(S.branches).filter(b => b !== 'hh')); return { r: x.id, city: c, cost: Math.round(BRANCH_COST[CITY[c].st] * .45 + avgRev() * .5) }; },
+    title: 'Feindliche Übernahme', text: p => `${RV[p.r].boss} (${RV[p.r].n}) will deine Niederlassung ${CITY[p.city].n} schlucken: „Verkauf freiwillig, oder ich nehme sie dir weg.“`,
+    choices: p => [
+      { t: 'Abwehr finanzieren', s: `Kostet ${money(p.cost)}, du behältst alles`, f() { spend(p.cost, 'other'); } },
+      { t: 'Niederlassung verkaufen', s: `+${money(BRANCH_COST[CITY[p.city].st] * .5)}, Lager und Fabriken dort gehen verloren`, f() { loseBranch(p.city, p.r); } },
     ],
   },
   poach: {
@@ -1109,11 +1125,11 @@ function doPrestige() {
 
 /* ---------- rivals, market share, tenders ---------- */
 const RIVALS = [
-  { id: 'nw', n: 'Nordwind Cargo', col: '#5aaeff', home: 'hh', v: 150000, agg: 1, st: 1, start: 4, tag: 'Platzhirsch in Hamburg' },
-  { id: 'at', n: 'Atlas Freight', col: '#b48cff', home: 'be', v: 2e6, agg: .9, st: 2, start: 3, tag: 'Aggressiv im Osten' },
-  { id: 'me', n: 'Meridian Logistics', col: '#2fd3b0', home: 'rtm', v: 25e6, agg: .8, st: 3, start: 3, tag: 'Hafen-Spezialist' },
-  { id: 'pl', n: 'Pacific Line Group', col: '#ffc23d', home: 'sha', v: 250e6, agg: .8, st: 4, start: 4, tag: 'Asiens Seefracht-Riese' },
-  { id: 'ob', n: 'Orbis Express', col: '#ff6b8a', home: 'nyc', v: 1.5e9, agg: .7, st: 4, start: 4, tag: 'Weltmarktführer' },
+  { id: 'nw', n: 'Nordwind Cargo', boss: 'Viktor Nord', col: '#5aaeff', home: 'hh', v: 150000, agg: 1, st: 1, start: 4, tag: 'Platzhirsch in Hamburg' },
+  { id: 'at', n: 'Atlas Freight', boss: 'Greta Atlas', col: '#b48cff', home: 'be', v: 2e6, agg: .9, st: 2, start: 3, tag: 'Aggressiv im Osten' },
+  { id: 'me', n: 'Meridian Logistics', boss: 'Joost van Meer', col: '#2fd3b0', home: 'rtm', v: 25e6, agg: .8, st: 3, start: 3, tag: 'Hafen-Spezialist' },
+  { id: 'pl', n: 'Pacific Line Group', boss: 'Mei Lin Zhao', col: '#ffc23d', home: 'sha', v: 250e6, agg: .8, st: 4, start: 4, tag: 'Asiens Seefracht-Riese' },
+  { id: 'ob', n: 'Orbis Express', boss: 'Celeste Orbis', col: '#ff6b8a', home: 'nyc', v: 1.5e9, agg: .7, st: 4, start: 4, tag: 'Weltmarktführer' },
 ];
 const RV = Object.fromEntries(RIVALS.map(r => [r.id, r]));
 function initRivals() { return RIVALS.map(r => ({ id: r.id, v: r.v, pres: { [r.home]: r.start }, gone: 0 })); }
@@ -1162,7 +1178,7 @@ function rivalsDay() {
     x.v *= 1 + .004 + Math.min(tp, 15) * .0002;
   }
   for (const c in S.boost) S.boost[c] *= .97;
-  underDay(); prodDay();
+  underDay(); prodDay(); crisisDay();
   if (!S.won && S.rivals.every(x => x.gone)) { S.won = 1; U.modal = { type: 'win' }; }
   // tenders
   S.tenderT--;
@@ -1334,7 +1350,7 @@ const CONTRA = [
 const CB = Object.fromEntries(CONTRA.map(x => [x.id, x]));
 const ALIAS = ['Der Fuchs', 'Mr. Grau', 'Kobra', 'Die Witwe', 'Nachtfalke', 'Onkel Jo', 'Der Zahnarzt', 'Silberzahn'];
 function heatLabel() { const h = S.heat; return h < 20 ? 'unauffällig' : h < 45 ? 'beobachtet' : h < 70 ? 'im Visier' : 'Großfahndung'; }
-function controlRisk(o) { return Math.min(.85, CB[o.illegal].risk * (1 + S.heat / 40) * (o.tier >= 4 ? 1.6 : 1)); }
+function controlRisk(o) { return Math.min(.85, CB[o.illegal].risk * (1 + S.heat / 40) * (o.tier >= 4 ? 1.6 : 1) * fx('risk')); }
 function bribeCost() { return Math.round(3000 + avgRev() * .6 + S.heat * 80); }
 function bribe() { if (S.heat < 1) return; const c = bribeCost(); if (S.money < c) return toast('Zu wenig Geld für die Bestechung.', 'r'); spend(c, 'fines'); S.heat = Math.max(0, S.heat - 25); toast(`Ein paar Umschläge wechseln den Besitzer. Fahndungsdruck jetzt ${Math.round(S.heat)} %.`, 'y'); }
 function genSmuggle() {
@@ -1360,6 +1376,7 @@ function busted(tr, ill) {
   for (const o of ill) { S.orders = S.orders.filter(x => x !== o); fine += o.pay * 1.2; }
   spend(fine, 'fines'); addRep(-6); S.heat = Math.min(100, S.heat + 18); S.stats.busted = (S.stats.busted || 0) + 1;
   const v = S.vehicles.find(x => x.id === tr.vid); if (v) v.impound = S.time + DAY;
+  sfx('siren');
   toast(`Polizeikontrolle! Ware beschlagnahmt, ${money(fine)} Strafe${v ? `, ${v.name} für einen Tag festgesetzt` : ''}.`, 'r', true);
 }
 function underDay() {
@@ -1369,6 +1386,7 @@ function underDay() {
     const fine = Math.round(5000 + Math.max(0, S.money) * .05);
     spend(fine, 'fines'); addRep(-10); S.heat = Math.max(0, S.heat - 30);
     S.orders = S.orders.filter(o => !o.illegal); addFx('spawn', .3, DAY, 'Ermittlungen laufen');
+    sfx('siren');
     toast(`Razzia im Lager! ${money(fine)} Strafe, alle heißen Waren weg, Kunden meiden dich einen Tag.`, 'r', true);
   }
 }
@@ -1393,6 +1411,133 @@ function vUnder() {
     </div>`; }).join('') || '<div class="empty">Deine Kontakte melden sich bald.</div>'}</div></section>`;
 }
 
+
+/* ---------- day/night, sound ---------- */
+function gameHour() { return (6 + S.dayT / DAY * 24) % 24; }
+function clockStr() { const h = gameHour(); const hh = Math.floor(h), mm = Math.floor((h - hh) * 60 / 10) * 10; return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0'); }
+function isNight() { const h = gameHour(); return h >= 20 || h < 6; }
+function nightAlpha() { const h = gameHour(); if (h >= 21 || h < 5) return .6; if (h >= 18) return (h - 18) / 3 * .6; if (h < 7) return (7 - h) / 2 * .6; return 0; }
+const SND = { ctx: null, last: {} };
+function sfx(n) {
+  if (!S || !S.sound) return;
+  const now = performance.now(); if (SND.last[n] && now - SND.last[n] < (n === 'click' ? 40 : 600)) return; SND.last[n] = now;
+  try {
+    if (!SND.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; SND.ctx = new AC(); }
+    const c = SND.ctx; if (c.state === 'suspended') c.resume();
+    const t = c.currentTime;
+    const tone = (f, d, type = 'sine', v = .08, dl = 0, f2) => { const o = c.createOscillator(), g = c.createGain(); o.type = type; o.frequency.setValueAtTime(f, t + dl); if (f2) o.frequency.linearRampToValueAtTime(f2, t + dl + d); g.gain.setValueAtTime(.0001, t + dl); g.gain.exponentialRampToValueAtTime(v, t + dl + .012); g.gain.exponentialRampToValueAtTime(.0001, t + dl + d); o.connect(g); g.connect(c.destination); o.start(t + dl); o.stop(t + dl + d + .05); };
+    const L = {
+      click: () => tone(1100, .035, 'square', .018),
+      cash: () => { tone(1318, .12, 'triangle', .06); tone(1760, .2, 'triangle', .06, .08); },
+      buy: () => { tone(330, .12, 'triangle', .07); tone(494, .16, 'triangle', .06, .07); },
+      level: () => [523, 659, 784, 1046].forEach((f, i) => tone(f, .2, 'triangle', .06, i * .09)),
+      alarm: () => { tone(880, .1, 'square', .035); tone(660, .14, 'square', .035, .14); },
+      siren: () => { tone(620, .45, 'sawtooth', .03, 0, 980); tone(980, .45, 'sawtooth', .03, .45, 620); },
+      bad: () => tone(260, .28, 'sawtooth', .035, 0, 150),
+      story: () => { tone(392, .16, 'sine', .06); tone(523, .22, 'sine', .06, .12); },
+    };
+    (L[n] || L.click)();
+  } catch (e) {}
+}
+
+/* ---------- world crises ---------- */
+const CRISES = [
+  { id: 'energy', n: 'Energiekrise', d: 'Kraftstoff und Strom fast doppelt so teuer.', fx: [['fuel', 1.8]] },
+  { id: 'boom', n: 'Online-Boom', d: 'Alle bestellen im Netz: viel mehr Aufträge, bessere Preise.', fx: [['spawn', 1.7], ['pay', 1.1]] },
+  { id: 'xmas', n: 'Weihnachtsgeschäft', d: 'Doppelt so viele Aufträge, +20 % Erlös – aber das Lager kommt kaum hinterher.', fx: [['spawn', 2], ['pay', 1.2], ['sort', .85]] },
+  { id: 'border', n: 'Grenzkontrollen', d: 'Überall Kontrollen: Schmuggel doppelt so riskant, Fahrten langsamer.', fx: [['risk', 2], ['travel', 1.15]] },
+  { id: 'recession', n: 'Rezession', d: 'Die Wirtschaft schwächelt: weniger Aufträge, schlechtere Preise.', fx: [['spawn', .6], ['pay', .85]] },
+  { id: 'portstrike', n: 'Hafenstreik', d: 'Häfen und Umschlag stocken: alle Fahrten deutlich langsamer.', fx: [['travel', 1.45]] },
+  { id: 'chipshort', n: 'Lieferkettenchaos', d: 'Engpässe überall: Auftraggeber zahlen Aufschläge für schnelle Lieferung.', fx: [['pay', 1.25], ['travel', 1.1]] },
+];
+function crisisDay() {
+  if (S.crisis && S.time >= S.crisis.until) { toast(`${CRISES.find(c => c.id === S.crisis.id).n} ist vorbei.`, 'g'); S.crisis = null; }
+  if (stage() < 2) return;
+  S.crisisT--;
+  if (!S.crisis && S.crisisT <= 0) {
+    const C = pick(CRISES); const d = DAY * rint(2, 4);
+    S.crisis = { id: C.id, until: S.time + d };
+    for (const [k, m] of C.fx) addFx(k, m, d, C.n);
+    S.crisisT = rint(7, 12);
+    toast(`Weltlage: ${C.n}! ${C.d}`, 'o', true);
+  }
+}
+function crisisBanner() {
+  if (!S.crisis) return '';
+  const C = CRISES.find(c => c.id === S.crisis.id); if (!C) return '';
+  return `<section class="card" data-key="crisis" style="border-color:var(--warn);background:linear-gradient(120deg,#2b2312,#152238)"><div class="row"><div class="ico" style="color:var(--warn)">${ic('globe')}</div><div class="grow"><div class="sub">Weltlage · noch ${dur(S.crisis.until - S.time)}</div><div class="ttl">${C.n}</div><div class="sub" style="white-space:normal">${C.d}</div></div></div></section>`;
+}
+
+/* ---------- daily bonus ---------- */
+function dailyReward() { return Math.round(Math.max(500, avgRev() * .5) * (1 + .2 * Math.min(S.daily.streak, 7)) / 10) * 10; }
+function claimDaily() {
+  const k = dayKey(); if (S.daily.last === k) return;
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  S.daily.streak = S.daily.last === dayKey(y) ? S.daily.streak + 1 : 1;
+  S.daily.last = k; const r = dailyReward(); S.money += r; sfx('cash');
+  toast(`Tagesbonus: ${money(r)} (Serie: ${S.daily.streak} Tage)`, 'g');
+}
+function dailyCard() {
+  if (S.daily.last === dayKey()) return '';
+  const y = new Date(); y.setDate(y.getDate() - 1); const nextStreak = S.daily.last === dayKey(y) ? S.daily.streak + 1 : 1;
+  const r = Math.round(Math.max(500, avgRev() * .5) * (1 + .2 * Math.min(nextStreak - 1, 7)) / 10) * 10;
+  return `<section class="card hot" data-key="daily"><div class="row"><div class="ico">${ic('gift')}</div><div class="grow"><div class="ttl">Tagesbonus bereit</div><div class="sub">Serie: ${nextStreak} ${nextStreak === 1 ? 'Tag' : 'Tage'} · jeden Tag wiederkommen erhöht den Bonus</div></div>${btn(money(r), 'daily', '', 'g sm')}</div></section>`;
+}
+
+/* ---------- branch loss (hostile takeover) ---------- */
+function loseBranch(cid, rid) {
+  if (!S.branches[cid] || cid === 'hh') return;
+  delete S.branches[cid];
+  const wi = S.warehouses.findIndex(w => w.city === cid);
+  if (wi > 0) S.warehouses.splice(wi, 1);
+  S.factories = S.factories.filter(f => f.city !== cid);
+  S.money += BRANCH_COST[CITY[cid].st] * .5;
+  const x = S.rivals.find(y => y.id === rid); if (x) x.pres[cid] = Math.min(8, (x.pres[cid] || 0) + 3);
+  U.wh = 0;
+  toast(`${CITY[cid].n} gehört jetzt ${RV[rid].n}.`, 'r', true);
+}
+const TAUNTS = ['Diese Stadt gehört mir.', 'Deine Lieferwagen sind ein Witz.', 'Ich kaufe deine Kunden einfach.', 'Gib auf, solange du noch kannst.', 'Wir spielen in einer anderen Liga.', 'Morgen fahren deine Kunden mit uns.'];
+
+/* ---------- story campaign ---------- */
+const CHARS = {
+  henning: { n: 'Opa Henning', role: 'Dein Mentor', col: '#ffa452', ini: 'OH' },
+  viktor: { n: 'Viktor Nord', role: 'Chef von Nordwind Cargo', col: '#5aaeff', ini: 'VN' },
+  brandt: { n: 'Kommissarin Brandt', role: 'Landeskriminalamt', col: '#38cc8c', ini: 'KB' },
+  kobra: { n: '„Kobra“', role: 'Kontakt aus der Unterwelt', col: '#c084fc', ini: 'K', skip: 1 },
+  celeste: { n: 'Celeste Orbis', role: 'Chefin von Orbis Express', col: '#ff6b8a', ini: 'CO' },
+};
+const STORY = [
+  { c: 'henning', t: 'Der erste Kunde', x: 'Ich habe diese Halle 40 Jahre geführt. Jetzt bist du dran. Liefere die ersten zehn Aufträge pünktlich aus – Kunden vergessen nie, wer sie im Stich lässt.', g: 'Liefere 10 Aufträge aus', v: () => S.stats.orders, n: 10, r: 1500 },
+  { c: 'henning', t: 'Hände für das Lager', x: 'Allein sortierst du dich kaputt. Stell Leute ein. Gute Leute sind mehr wert als jeder neue Lieferwagen.', g: 'Beschäftige 2 Lagerarbeiter', v: () => staffOf('worker').length, n: 2, r: 2500 },
+  { c: 'viktor', t: 'Kampfansage', x: 'Na sieh mal an, der Enkel vom alten Henning. Hamburg ist Nordwind-Land, Kleiner. Fahr lieber Pizza aus.', g: 'Erreiche 55 % Marktanteil in Hamburg', v: () => Math.round(share('hh') * 100), n: 55, r: 5000, u: ' %' },
+  { c: 'henning', t: 'Raus aus der Stadt', x: 'Viktor bellt laut. Lass ihn. Wir wachsen dort, wo er nicht hinschaut: im Umland.', g: 'Sei in 3 Städten aktiv', v: () => Object.keys(S.markets).length, n: 3, r: 6000 },
+  { c: 'kobra', t: 'Ein kleiner Gefallen', x: 'Hübsche Halle. Ich hätte da ein paar Kisten, die niemand sehen soll. Gut bezahlt. Du hast mich nie getroffen.', g: 'Bring 1 Schmuggelfahrt durch', v: () => S.stats.smuggled || 0, n: 1, r: 8000 },
+  { c: 'brandt', t: 'Besuch vom LKA', x: 'Kommissarin Brandt. Mir sind Gerüchte über Ihre Firma zu Ohren gekommen. Ich hoffe für Sie, dass da nichts dran ist.', g: 'Halte den Fahndungsdruck unter 25 %', v: () => S.heat < 25 ? 1 : 0, n: 1, r: 6000 },
+  { c: 'henning', t: 'Eigene Ware', x: 'Wer nur fremde Pakete fährt, bleibt Spediteur. Wer selbst produziert, wird Unternehmer. Bau deine erste Fabrik.', g: 'Besitze 1 Fabrik', v: () => S.factories.length, n: 1, r: 10000 },
+  { c: 'viktor', t: 'Viktor schlägt zurück', x: 'Du klaust mir Kunden? Dann sehen wir uns bei der nächsten Ausschreibung. Ich biete dich in Grund und Boden.', g: 'Gewinne 1 Ausschreibung', v: () => S.stats.tenders || 0, n: 1, r: 15000 },
+  { c: 'henning', t: 'Ganz Deutschland', x: 'Jetzt wird es ernst. Eine zweite Niederlassung, und du spielst in der Bundesliga.', g: 'Besitze 2 Niederlassungen', v: () => Object.keys(S.branches).length, n: 2, r: 30000 },
+  { c: 'kobra', t: 'Die große Lieferung', x: 'Du bist zuverlässig. Das gefällt meinen Freunden. Zehn Fahrten, und du gehörst zur Familie.', g: 'Bring 10 Schmuggelfahrten durch', v: () => S.stats.smuggled || 0, n: 10, r: 60000 },
+  { c: 'viktor', t: 'Das Ende von Nordwind', x: 'Das … das kannst du nicht machen. Nordwind gibt es seit 1952! Na gut. Nenn deinen Preis.', g: 'Übernimm Nordwind Cargo', v: () => S.rivals.find(x => x.id === 'nw').gone, n: 1, r: 100000 },
+  { c: 'brandt', t: 'Die Schlinge zieht sich zu', x: 'Wir haben Kobra im Visier. Wenn Ihr Name in den Akten auftaucht, ist Ihre Firma Geschichte. Sauber bleiben – oder sehr vorsichtig sein.', g: 'Liefere 1.000 Aufträge aus', v: () => S.stats.orders, n: 1000, r: 150000 },
+  { c: 'henning', t: 'Über den Ozean', x: 'Ich bin nie weiter als bis Bremen gekommen. Zeig mir die Welt, Kind. Kauf ein Flugzeug oder ein Schiff.', g: 'Besitze ein Flugzeug oder Schiff', v: () => S.vehicles.filter(v => v.type === 'plane' || v.type === 'ship').length, n: 1, r: 500000 },
+  { c: 'celeste', t: 'Die Herrscherin', x: 'Ich habe von Ihnen gehört. Niedlich. Orbis bewegt jeden Tag mehr Fracht als Sie in Ihrem ganzen Leben. Kommen Sie mir nicht in die Quere.', g: 'Übernimm drei Konkurrenten', v: () => S.stats.takeovers || 0, n: 3, r: 2000000 },
+  { c: 'celeste', t: 'Endkampf', x: 'Sie wollen mich kaufen? Mich? Dann zeigen Sie mir, was Sie haben.', g: 'Übernimm Orbis Express', v: () => S.rivals.find(x => x.id === 'ob').gone, n: 1, r: 25000000 },
+];
+function storyCur() { return STORY[S.story.i]; }
+function claimStory() { const m = storyCur(); if (!m || m.v() < m.n) return; S.money += m.r; addXp(m.r / 30); S.story.i++; sfx('story'); toast(`Story erledigt: „${m.t}“ · ${money(m.r)}`, 'g'); }
+function skipStory() { const m = storyCur(); if (!m || !CHARS[m.c].skip) return; S.story.i++; toast(`Du lehnst ab. ${CHARS[m.c].n} wird sich das merken.`, 'y'); }
+function storyCard() {
+  const m = storyCur();
+  if (!m) return `<section class="card" data-key="story"><div class="row"><div class="ico">${ic('trophy')}</div><div class="grow"><div class="ttl">Story abgeschlossen</div><div class="sub">Du hast alle Kapitel der Geschichte gespielt. Jetzt gehört dir die Welt.</div></div></div></section>`;
+  const C = CHARS[m.c]; const v = m.v(); const done = v >= m.n;
+  return `<section class="card ${C.skip ? 'dark' : ''} ${done ? 'hot' : ''}" data-key="story">
+    <div class="row" style="align-items:flex-start"><div class="ico" style="background:${C.col};color:#0a1424;font-family:var(--f-disp);font-weight:800;font-size:16px;border-radius:50%">${C.ini}</div>
+      <div class="grow"><div class="sub">Story ${S.story.i + 1}/${STORY.length} · ${esc(C.n)} · ${esc(C.role)}</div><div class="ttl" style="white-space:normal">${esc(m.t)}</div><p class="sub" style="margin:6px 0 0;font-style:italic;color:#c9d5e6;white-space:normal">„${esc(m.x)}“</p></div></div>
+    <div><div class="row sb"><span class="sub" style="color:${done ? 'var(--good)' : 'var(--ink)'}">${done ? '✓ ' : ''}${esc(m.g)}</span><span class="sub num">${num(Math.min(v, m.n))}${m.u || ''} / ${num(m.n)}${m.u || ''}</span></div>${bar(v / m.n, done ? 'g' : '')}</div>
+    <div class="row" style="gap:6px;flex-wrap:wrap">${btn(done ? 'Belohnung holen · ' + money(m.r) : 'Belohnung ' + money(m.r), 'story', '', done ? 'g sm' : 's sm', !done)}${C.skip && !done ? btn('Ablehnen', 'storyskip', '', 'r sm') : ''}</div>
+  </section>`;
+}
+
 /* ---------- autopilot ---------- */
 const AP_KEYS = [['accept', 'Aufträge annehmen'], ['dispatch', 'Versenden'], ['care', 'Reparatur & Fahrer'], ['events', 'Ereignisse & Belohnungen'], ['research', 'Forschung'], ['build', 'Ausbau & Einkauf']];
 function apReserve() { const h = S.fin.hist[S.fin.hist.length - 1]; return Math.max(400, h ? h.exp * .8 : 300); }
@@ -1412,6 +1557,7 @@ function autoEvent() {
   else if (c.id === 'rival_push') best = apCan(c.p.cost * 2) ? 0 : 2;
   else if (c.id === 'sabotage' || c.id === 'tipoff') best = apCan(c.p.cost * 2) ? 0 : 1;
   else if (c.id === 'steal') best = 0;
+  else if (c.id === 'hostile') best = apCan(c.p.cost * 1.5) ? 0 : 1;
   else if (c.id === 'poach') best = apCan(c.p.cost * 30) ? 0 : 1;
   else { best = ch.findIndex((x, i) => costly(i)); if (best < 0 || !apCan((c.p.cost || 0) * 3)) best = ch.findIndex((x, i) => !costly(i)); if (best < 0) best = 0; }
   toast(`${EVENTS[c.id].title}: Autopilot wählt „${ch[best].t}“`, 'y', !!EVENTS[c.id].rival);
@@ -1502,6 +1648,7 @@ function autoPanel() {
   return `<section class="card" data-key="autopanel">
     <div class="row sb"><div class="row"><div class="ico">${ic('bolt')}</div><div><div class="ttl">Autopilot ${all ? '<span class="chip g">läuft</span>' : AP_KEYS.some(([k]) => S.auto[k]) ? '<span class="chip g">Routine</span>' : '<span class="chip">aus</span>'}</div><div class="sub">Routine läuft von selbst. Wachstum und Konkurrenzkampf entscheidest du – oder schalte sie dazu.</div></div></div>${btn(all ? 'Alles aus' : 'Alles an', 'auto', 'all', all ? 's sm' : 'sm')}</div>
     <div class="chips">${AP_KEYS.map(([k, n]) => `<button class="chip ${S.auto[k] ? 'g' : ''}" style="border:0;cursor:pointer;min-height:30px" data-act="auto" data-a="${k}">${S.auto[k] ? ic('check') : ic('x')}${n}</button>`).join('')}</div>
+    <div class="row sb"><span class="sub">Ton</span>${btn(ic('speaker') + (S.sound ? 'An' : 'Aus'), 'sound', '', S.sound ? 's sm' : 's sm')}</div>
     <div class="row sb"><span class="sub">Spieltempo</span><div class="seg" style="flex:none">${[1, 2, 4].map(x => `<button class="${S.speed === x ? 'on' : ''}" data-act="speed" data-a="${x}">${x}×</button>`).join('')}</div></div>
   </section>`;
 }
@@ -1524,6 +1671,7 @@ function migrate(o) {
   if (!o.rivals) m.rivals = initRivals();
   for (const k of ['boost', 'war']) m[k] = o[k] || {};
   m.tenders = o.tenders || []; m.news = o.news || [];
+  m.story = o.story || { i: 0 }; m.crisis = o.crisis || null; m.crisisT = o.crisisT || 9; m.daily = o.daily || { last: '', streak: 0 }; m.sound = o.sound == null ? 1 : o.sound;
   m.factories = o.factories || []; m.sat = o.sat || {}; m.heat = o.heat || 0; m.under = o.under || { offers: [], refresh: 0 }; m.won = o.won || 0;
   for (const w of m.warehouses) w.m = Object.assign({ size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, w.m);
   return m;
@@ -1689,7 +1837,27 @@ function drawScene(cv, wh, T) {
   // drones
   const drones = S.trips.filter(t => S.vehicles.find(v => v.id === t.vid && v.type === 'drone'));
   drones.slice(0, 6).forEach((t, i) => { const p = t.phase === 'out' ? t.t / t.one : t.phase === 'back' ? 1 - t.t / t.one : 0; outs.push({ d: 998, f: () => { const [a, b] = P(bw / 2 + p * 10 + i, bd / 2 - p * 6, 2.2 + Math.sin(T * 4 + i) * .1); g.fillStyle = '#e8edf3'; g.fillRect(a - .25 * k, b - .05 * k, .5 * k, .1 * k); g.fillStyle = '#ff7a1a'; g.fillRect(a - .08 * k, b - .02 * k, .16 * k, .16 * k); } }); });
+  const lamps = [[px0 - .35, -.1], [px0 + 7.2, -.1], [px0 - .35, bd + .1], [px0 + 7.2, bd + .1], [-.6, bd + .6], [bw * .5, bd + 4.8], [bw + 4, bd + 4.8]];
+  for (const [lx, ly] of lamps) outs.push({ d: lx + ly, f: () => { box(lx, ly, 0, .1, .1, 1.7, '#5d6b7d'); box(lx - .05, ly - .05, 1.7, .25, .2, .06, '#2a3442'); } });
   outs.sort((a, b) => a.d - b.d).forEach(o => o.f());
+  // day / night and weather
+  const na = nightAlpha();
+  if (na > 0) {
+    g.fillStyle = `rgba(4,10,32,${na})`; g.fillRect(0, 0, W, H);
+    g.globalCompositeOperation = 'lighter';
+    const glow = (x, y, rad, col) => { const gr = g.createRadialGradient(x, y, 0, x, y, rad); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); };
+    const ia = na / .6;
+    for (const [lx, ly] of lamps) { const [a, b] = P(lx + .05, ly + .05, 1.6); glow(a, b, k * 2.6, `rgba(255,190,110,${.45 * ia})`); }
+    for (const dx of docksX) { const [a, b] = P(dx + .4, bd + .3, .5); glow(a, b, k * 1.4, `rgba(255,210,150,${.35 * ia})`); }
+    const [cx2, cy2b] = P(bw / 2, bd / 2, .3); glow(cx2, cy2b, k * Math.max(bw, bd) * .7, `rgba(255,230,180,${.18 * ia})`);
+    g.globalCompositeOperation = 'source-over';
+  }
+  if (S.fx.some(f => f.label === 'Unwetter')) {
+    g.strokeStyle = 'rgba(190,215,255,.35)'; g.lineWidth = 1;
+    g.beginPath();
+    for (let i = 0; i < 140; i++) { const x = ((i * 97.3) % W + T * 40 * (1 + (i % 3) * .2)) % W; const y = ((i * 53.7) % H + T * 520 * (1 + (i % 4) * .15)) % H; g.moveTo(x, y); g.lineTo(x - 3, y + 11); }
+    g.stroke(); g.fillStyle = 'rgba(30,45,70,.18)'; g.fillRect(0, 0, W, H);
+  }
 
   function drawVeh(v, x, y, dir) {
     const t = VT[v.type]; const L = t.len, Wd = .62, Hh = t.h;
@@ -1857,6 +2025,7 @@ function patch(el, html) { const t = document.createElement('template'); t.inner
 /* ---------- toasts & floating text ---------- */
 function toast(msg, kind = '', force) {
   if (S && S.news) { const last = S.news[0]; if (!last || last.m !== msg) { S.news.unshift({ d: S.day, m: msg, k: kind }); if (S.news.length > 40) S.news.pop(); } }
+  if (force && kind === 'r') sfx('bad'); else if (force && kind === 'o') sfx('alarm');
   if (!force && !U.userAct) return;
   if (U.toasts.some(t => t.msg === msg)) return;
   U.toasts.push({ id: Math.random(), msg, kind, t: performance.now() }); if (U.toasts.length > 2) U.toasts.shift(); renderToasts();
@@ -1890,6 +2059,7 @@ const TABS = [
   { id: 'company', n: 'Firma', ico: 'gear', more: 1 },
 ];
 function tabDot(id) {
+  if (id === 'hq' && (S.daily.last !== dayKey() || (storyCur() && storyCur().v() >= storyCur().n))) return true;
   if (id === 'hq') return S.orders.some(o => o.state === 'ready' && o.left > 0 && !dispatchBlock(o)) && !staffOf('dispatcher').length;
   if (id === 'research') return !S.research.cur && RESEARCH.some(r => researchState(r) === 'open' && S.money >= r.cost);
   if (id === 'goals') return claimableCount() > 0;
@@ -1918,7 +2088,7 @@ function renderHUD() {
     <div class="sp"></div>
     <div class="cash">
       <div class="m ${S.money < 0 ? 'neg' : ''}">${money(S.money)}</div>
-      <div class="d">Tag ${S.day} · heute <span class="${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : ''}${money(net)}</span> · ${ic('star', '').replace('<svg', '<svg style="width:11px;height:11px;vertical-align:-1px;color:var(--orange2)"')} ${repStars()}</div>
+      <div class="d">Tag ${S.day} · ${ic(isNight() ? 'moon' : 'sun').replace('<svg', '<svg style="width:11px;height:11px;vertical-align:-1px;color:var(--orange2)"')} ${clockStr()} · <span class="${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : ''}${money(net)}</span> · ${ic('star', '').replace('<svg', '<svg style="width:11px;height:11px;vertical-align:-1px;color:var(--orange2)"')} ${repStars()}</div>
       <div class="daybar"><i style="width:${(S.dayT / DAY * 100).toFixed(1)}%"></i></div>
     </div>`);
 }
@@ -1941,6 +2111,7 @@ function vHQ() {
     <div class="lbl">${esc(S.warehouses[0].name)}</div>
     <div class="act">${btn(ic('hand') + 'Mit anpacken', 'help', '', '', U.helpCd > 0 || !S.orders.some(o => o.state === 'sort'))}</div>
   </div>
+  ${crisisBanner()}${dailyCard()}${storyCard()}
   ${chapterCard()}
   ${S.heat >= 1 ? `<div class="chips"><button class="chip ${S.heat >= 60 ? 'r' : S.heat >= 30 ? 'y' : ''}" style="border:0;cursor:pointer" data-act="tab" data-a="under">${ic('mask')}Fahndungsdruck ${Math.round(S.heat)} % · ${heatLabel()}</button></div>` : ''}
   ${tut}
@@ -2315,6 +2486,11 @@ const ACT = {
   tutskip() { S.tut = 99; },
   auto(a) { if (a === 'all') { const on = !AP_KEYS.every(([k]) => S.auto[k]); for (const [k] of AP_KEYS) S.auto[k] = on ? 1 : 0; toast(on ? 'Autopilot komplett eingeschaltet.' : 'Autopilot ausgeschaltet. Du steuerst selbst.', on ? 'g' : ''); } else S.auto[a] = S.auto[a] ? 0 : 1; },
   speed(a) { S.speed = +a; },
+  sound() { S.sound = S.sound ? 0 : 1; if (S.sound) sfx('cash'); },
+  daily() { claimDaily(); },
+  story() { claimStory(); },
+  storyskip() { skipStory(); },
+  defend(a) {},
   buildfac(a) { const [t, c] = a.split(':'); buildFactory(t, c); },
   upfac(a) { upgradeFactory(a); },
   factarget(a) { const [id, c] = a.split(':'); const f = S.factories.find(x => x.id === id); if (f) f.target = c; },
@@ -2370,7 +2546,7 @@ const ACT = {
 document.addEventListener('click', e => {
   const b = e.target.closest('[data-act]'); if (!b || !b.dataset.act) return;
   const f = ACT[b.dataset.act]; if (!f) return;
-  U.userAct = true; try { f(b.dataset.a || '', e); } finally { U.userAct = false; } render();
+  U.userAct = true; sfx('click'); try { f(b.dataset.a || '', e); } finally { U.userAct = false; } render();
 });
 // map gestures
 const PT = new Map(); let pinch = null, dragMoved = false;

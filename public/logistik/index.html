@@ -138,7 +138,7 @@ h1{font-family:var(--f-disp);font-weight:800;font-size:30px;letter-spacing:.01em
 .sheet .grab{width:42px;height:5px;border-radius:3px;background:var(--line);align-self:center;margin-top:-6px}
 .sheet p{margin:0;line-height:1.45;color:#c9d5e6}
 .choice{display:flex;flex-direction:column;gap:8px}
-.choice .btn{justify-content:flex-start;text-align:left;white-space:normal;padding:12px 14px}
+.choice .btn{justify-content:flex-start;align-items:flex-start;flex-direction:column;gap:2px;text-align:left;white-space:normal;padding:12px 14px}
 .choice .btn small{display:block;font-weight:500;opacity:.8;font-size:12.5px}
 textarea{width:100%;min-height:110px;background:#0b1830;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:10px;font:12px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
 input[type=text]{width:100%;background:#0b1830;color:var(--ink);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit;font-size:16px}
@@ -387,6 +387,7 @@ function newGame(keep) {
     stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0, tenders: 0, takeovers: 0, campaigns: 0 },
     rivals: initRivals(), boost: {}, war: {}, tenders: [], tenderT: 2, news: [], stageMax: 1,
     factories: [], sat: {}, heat: 0, under: { offers: [], refresh: 0 }, won: 0,
+    gangs: initGangs(), turf: initTurf(), wars: [], chase: null,
     story: { i: 0 }, crisis: null, crisisT: 9, daily: { last: '', streak: 0 }, sound: 1,
     markets: { hh: 1 }, branches: { hh: 1 },
     warehouses: [{ id: 'w1', city: 'hh', name: 'Zentrallager Hamburg', m: { size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, inv: 0 }],
@@ -542,6 +543,7 @@ function cancelOrder(id) {
   const o = S.orders.find(x => x.id === id); if (!o || o.left < o.pk) return;
   S.orders = S.orders.filter(x => x !== o);
   spend(cancelFee(o), 'other'); addRep(-2);
+  if (o.illegal) gangFail(o, 'cancel');
   if (o.contract) { const c = S.contracts.active.find(c => c.id === o.contract); if (c) c.failed++; }
   toast(`Auftrag von ${o.cust} storniert. Gebühr ${money(cancelFee(o))}, Ruf −2.`, 'y');
 }
@@ -629,11 +631,12 @@ function step(dt) {
   S.apT += dt; if (S.apT >= 1) { S.apT -= 1; autopilot(); const st = stage(); if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; } }
   if (S.tenders.length) tendersTick();
   if (S.factories.length) prodTick(dt);
+  if (S.chase && S.time > S.chase.until) resolveChase('give');
   if (S.dayT >= DAY) endDay();
 }
 function deliver(tr) {
   const ill = tr.loads.map(l => S.orders.find(x => x.id === l.oid)).filter(o => o && o.illegal);
-  if (ill.length && Math.random() < Math.max(...ill.map(controlRisk))) busted(tr, ill);
+  if (ill.length && Math.random() < Math.max(...ill.map(controlRisk))) startChase(tr, ill);
   for (const l of tr.loads) {
     const o = S.orders.find(x => x.id === l.oid); if (!o) continue;
     o.delivered += l.n;
@@ -646,7 +649,7 @@ function completeOrder(o) {
   S.orders = S.orders.filter(x => x !== o);
   S.stats.orders++; S.stats.pkgs += o.pk;
   if (o.express) S.stats.express++; if (o.tier >= 4) S.stats.intl++; if (o.cold) S.stats.cold++;
-  if (o.illegal) { S.stats.smuggled = (S.stats.smuggled || 0) + 1; S.stats.dirty = (S.stats.dirty || 0) + o.pay; S.heat = Math.min(100, S.heat + 3 + CB[o.illegal].risk * 40); }
+  if (o.illegal) smuggleDone(o);
   else if (o.late) { S.stats.late++; addRep(-1.5); } else addRep(.25 + o.tier * .1 + (o.express ? .2 : 0));
   addXp(5 + o.pk * .5 * o.tier);
   if (o.contract) { const c = S.contracts.active.find(c => c.id === o.contract); if (c) { c.done++; if (o.late) c.late++; } }
@@ -971,6 +974,36 @@ const EVENTS = {
       { t: 'Nichts tun', s: 'Der Rivale behält die Kunden', f() {} },
     ],
   },
+  extort: {
+    crime: 1,
+    ok: () => stage() >= 2 && Object.keys(S.branches).some(c => turfOf(c) && S.gangs[turfOf(c)].prot < S.time),
+    make() { const c = pick(Object.keys(S.branches).filter(c => turfOf(c) && S.gangs[turfOf(c)].prot < S.time)); const gid = turfOf(c); return { c, g: gid, cost: Math.round(protCost() * 1.2) }; },
+    title: 'Schutzgeld', text: p => `Zwei Männer der ${GG[p.g].n} stehen in deiner Halle in ${CITY[p.c].n}. „${GG[p.g].boss} findet, so ein schöner Laden braucht Schutz. Wäre doch schade, wenn hier etwas brennt.“`,
+    choices: p => [
+      { t: `Zahlen · ${money(p.cost)}`, s: 'Beziehung +6, fünf Tage Schutz vor Kontrollen in ihrem Gebiet', f() { spend(p.cost, 'fines'); const g = S.gangs[p.g]; g.prot = S.time + DAY * 5; addRel(p.g, 6); } },
+      { t: 'Rauswerfen', s: 'Beziehung −20, sie könnten sofort zurückschlagen', f() { addRel(p.g, -20); if (Math.random() < .45) gangAttack(p.g); } },
+    ],
+  },
+  mafiabribe: {
+    crime: 1,
+    ok: () => stage() >= 2 && activeGangs().length > 0,
+    make() { const G = pick(activeGangs()); return { g: G.id, cash: Math.round((5000 + avgRev() * 1.5) * stage()) }; },
+    title: 'Ein Umschlag', text: p => `${GG[p.g].boss} schiebt dir einen dicken Umschlag über den Tisch: „Morgen kommt ein Container. Du schaust einfach nicht hin. Das ist alles.“`,
+    choices: p => [
+      { t: `Nehmen · +${money(p.cash)}`, s: 'Beziehung +10, Fahndungsdruck +12', f() { S.money += p.cash; S.stats.dirty = (S.stats.dirty || 0) + p.cash; addRel(p.g, 10); S.heat = Math.min(100, S.heat + 12); } },
+      { t: 'Ablehnen', s: 'Beziehung −8', f() { addRel(p.g, -8); } },
+    ],
+  },
+  gangjob: {
+    crime: 1,
+    ok: () => stage() >= 2 && activeGangs().some(G => S.gangs[G.id].rel >= 15),
+    make() { const G = pick(activeGangs().filter(G => S.gangs[G.id].rel >= 15)); const cs = Object.keys(S.markets); const city = pick(cs); const geo = geoTier(city); const pk = Math.round(SIZE[geo][1] * .5); return { g: G.id, city, pk, pay: Math.round((BASE[geo] + pk * RATE[geo]) * 9 * payMult()) }; },
+    title: 'Eilauftrag der Familie', text: p => `${GG[p.g].boss} ruft nachts an: „${num(p.pk)} Kisten nach ${CITY[p.city].n}. Heute noch. Du weißt, was drin ist. ${money(p.pay)} – und wir vergessen nie, wer uns hilft.“`,
+    choices: p => [
+      { t: 'Übernehmen', s: `${money(p.pay)} · Beziehung steigt stark · scheitern kostet ${money(p.pay * .5)}`, f() { const o = genOrder({ city: p.city, ct: 'shop', pk: p.pk, cold: false, express: false }); o.cust = `Eilauftrag für ${GG[p.g].n}`; o.pay = p.pay; o.illegal = 'drugs'; o.gang = p.g; if (!canStore(o.pk)) { addRel(p.g, -5); return toast('Kein Platz im Lager – die Familie ist enttäuscht.', 'r'); } admit(o); } },
+      { t: 'Absagen', s: 'Beziehung −10', f() { addRel(p.g, -10); } },
+    ],
+  },
   sabotage: {
     rival: 1,
     ok: () => stage() >= 2 && activeRivals().length > 0 && S.vehicles.some(v => v.state === 'idle'),
@@ -1035,7 +1068,7 @@ function triggerEvent() {
   if (!ids.length) return;
   const id = pick(ids);
   S.ev.cur = { id, p: EVENTS[id].make() };
-  if (S.auto && S.auto.events) { autoEvent(); return; }
+  if (S.auto && S.auto.events && !EVENTS[id].crime) { autoEvent(); return; }
   if (!U.modal) U.modal = { type: 'event' };
 }
 function resolveEvent(i) {
@@ -1098,6 +1131,7 @@ const ACH = [
   { id: 'rall', n: 'Technologieführer', d: 'Alle Technologien erforschen', v: () => S.stats.researched, g: RESEARCH.length, r: 5e6 },
   { id: 'top', n: 'Weltmarktführer', d: 'Platz 1 der Logistik-Rangliste', v: () => 6 - myRank(), g: 5, r: 1e7 },
   { id: 'fab3', n: 'Industrieller', d: 'Drei Fabriken besitzen', v: () => S.factories.length, g: 3, r: 50000 },
+  { id: 'fam', n: 'Teil der Familie', d: 'Bei einer Bande den Status Familie erreichen', v: () => Math.max(...Object.values(S.gangs).map(g => g.rel)), g: 50, r: 250000 },
   { id: 'smug', n: 'Unterweltboss', d: '25 Schmuggelfahrten durchbringen', v: () => S.stats.smuggled || 0, g: 25, r: 100000 },
   { id: 'all5', n: 'Alleinherrscher', d: 'Alle fünf Konkurrenten übernehmen', v: () => S.stats.takeovers || 0, g: 5, r: 5e7 },
   { id: 'ipo', n: 'Börsengang', d: 'Einen Neustart mit Aktien wagen', v: () => S.prestige.count, g: 1, r: 0 },
@@ -1340,77 +1374,250 @@ function vProd() {
     </div>`; }).join('')}</div></section>`;
 }
 
-/* ---------- underworld ---------- */
+/* ---------- underworld: gangs, jobs, trade, chases ---------- */
 const CONTRA = [
-  { id: 'fake', n: 'Gefälschte Markenware', mult: 2.6, risk: .05, st: 2 },
-  { id: 'stolen', n: 'Hehlerware', mult: 3.2, risk: .07, st: 2 },
-  { id: 'drugs', n: 'Drogen', mult: 6, risk: .15, st: 2 },
-  { id: 'cash', n: 'Schwarzgeld', mult: 4.5, risk: .1, st: 3 },
+  { id: 'fake', n: 'Gefälschte Markenware', mult: 2.8, risk: .05, st: 2 },
+  { id: 'stolen', n: 'Hehlerware', mult: 3.5, risk: .07, st: 2 },
+  { id: 'drugs', n: 'Drogen', mult: 7, risk: .14, st: 2 },
+  { id: 'cash', n: 'Schwarzgeld', mult: 5, risk: .1, st: 3 },
 ];
 const CB = Object.fromEntries(CONTRA.map(x => [x.id, x]));
-const ALIAS = ['Der Fuchs', 'Mr. Grau', 'Kobra', 'Die Witwe', 'Nachtfalke', 'Onkel Jo', 'Der Zahnarzt', 'Silberzahn'];
+const GANGS = [
+  { id: 'kob', n: 'Hafenkobras', boss: 'Kobra', home: 'hh', col: '#c084fc', turf: ['hh', 'hl', 'ki'], st: 2, str: 5 },
+  { id: 'wolf', n: 'Nebelwölfe', boss: 'Der Graf', home: 'waw', col: '#94a3b8', turf: ['waw', 'be', 'le'], st: 2, str: 6 },
+  { id: 'mow', n: 'Schwarze Möwen', boss: 'Die Witwe', home: 'rtm', col: '#f472b6', turf: ['rtm', 'hb', 'ko', 'ha'], st: 2, str: 6 },
+  { id: 'hand', n: 'Silberne Hand', boss: 'Der Notar', home: 'mil', col: '#e2e8f0', turf: ['mil', 'mu', 'su', 'fr', 'par', 'mad', 'sto'], st: 3, str: 8 },
+  { id: 'jade', n: 'Jade-Syndikat', boss: 'Jade', home: 'sha', col: '#4ade80', turf: ['sha', 'tyo', 'sin'], st: 4, str: 9 },
+  { id: 'seven', n: 'Kartell der Sieben', boss: 'Der Schweiger', home: 'sao', col: '#facc15', turf: ['sao', 'la', 'nyc', 'lag'], st: 4, str: 10 },
+  { id: 'dune', n: 'Dünenbund', boss: 'Der Kaufmann', home: 'dxb', col: '#fb923c', turf: ['dxb', 'bom', 'syd'], st: 4, str: 9 },
+];
+const GG = Object.fromEntries(GANGS.map(g => [g.id, g]));
+function initGangs() { const o = {}; for (const g of GANGS) o[g.id] = { rel: 0, debt: 0, due: 0, prot: 0, str: g.str }; return o; }
+function initTurf() { const t = {}; for (const g of GANGS) for (const c of g.turf) t[c] = g.id; return t; }
+function activeGangs() { return GANGS.filter(g => stage() >= g.st); }
+function turfOf(cid) { const id = S.turf[cid]; return id && stage() >= GG[id].st ? id : null; }
+function warIn(cid) { return S.wars.find(w => w.city === cid && w.until > S.time); }
+function relLabel(r) { return r <= -50 ? 'Todfeind' : r <= -15 ? 'Feindlich' : r < 15 ? 'Neutral' : r < 50 ? 'Geschäftspartner' : 'Familie'; }
+function relCls(r) { return r <= -15 ? 'r' : r < 15 ? '' : r < 50 ? 'y' : 'g'; }
+function addRel(gid, x) { const g = S.gangs[gid]; if (g) g.rel = clamp(g.rel + x, -100, 100); }
 function heatLabel() { const h = S.heat; return h < 20 ? 'unauffällig' : h < 45 ? 'beobachtet' : h < 70 ? 'im Visier' : 'Großfahndung'; }
-function controlRisk(o) { return Math.min(.85, CB[o.illegal].risk * (1 + S.heat / 40) * (o.tier >= 4 ? 1.6 : 1) * fx('risk')); }
+function cityRisk(cid) {
+  let m = 1; const t = turfOf(cid); const g = t && S.gangs[t];
+  if (g && g.prot > S.time && g.rel >= 0) m *= .5; else if (g && g.rel >= 50) m *= .7;
+  if (warIn(cid)) m *= 1.3;
+  return m;
+}
+function controlRisk(o) { return Math.min(.85, CB[o.illegal].risk * (1 + S.heat / 40) * (o.tier >= 4 ? 1.6 : 1) * fx('risk') * cityRisk(o.city)); }
 function bribeCost() { return Math.round(3000 + avgRev() * .6 + S.heat * 80); }
 function bribe() { if (S.heat < 1) return; const c = bribeCost(); if (S.money < c) return toast('Zu wenig Geld für die Bestechung.', 'r'); spend(c, 'fines'); S.heat = Math.max(0, S.heat - 25); toast(`Ein paar Umschläge wechseln den Besitzer. Fahndungsdruck jetzt ${Math.round(S.heat)} %.`, 'y'); }
+const ALIAS = ['Der Fuchs', 'Mr. Grau', 'Silberzahn', 'Nachtfalke', 'Onkel Jo', 'Der Zahnarzt', 'Die Lady', 'Kurier Sieben'];
 function genSmuggle() {
+  const gangs = activeGangs(); if (!gangs.length) return;
   const types = CONTRA.filter(x => stage() >= x.st); const cities = Object.keys(S.markets); const out = [];
-  for (let i = 0; i < 3; i++) {
-    const C = pick(types); const city = pick(cities); const geo = geoTier(city); const [a, b] = SIZE[geo];
-    const pk = Math.max(4, Math.round(rnd(a, b) * rnd(.3, .6)));
-    out.push({ id: nid('u'), type: C.id, city, pk, pay: Math.round((BASE[geo] + pk * RATE[geo]) * C.mult * payMult()), alias: pick(ALIAS) });
+  for (let i = 0; i < 5; i++) {
+    const G = pick(gangs); const C = i < 2 ? CB.drugs : pick(types);
+    const intl = cities.filter(c => geoTier(c) >= 4);
+    const city = intl.length && Math.random() < .55 ? pick(intl) : pick(cities);
+    const geo = geoTier(city); const [a, b] = SIZE[geo];
+    const pk = Math.max(5, Math.round(rnd(a, b) * rnd(.35, .8)));
+    const war = warIn(city);
+    const pay = Math.round((BASE[geo] + pk * RATE[geo]) * C.mult * (geo >= 4 ? 1.6 : 1) * (war ? 1.6 : 1) * payMult());
+    const minRel = geo >= 5 ? 30 : geo >= 4 ? 15 : pk > 150 ? 5 : -40;
+    out.push({ id: nid('u'), gang: G.id, type: C.id, city, pk, pay, minRel, alias: pick(ALIAS) });
   }
   S.under.offers = out; S.under.refresh = S.day + 2;
 }
 function acceptSmuggle(id) {
   const x = S.under.offers.find(o => o.id === id); if (!x) return;
-  if (S.orders.filter(o => o.illegal).length >= 3) return toast('Höchstens drei heiße Ladungen gleichzeitig.', 'y');
+  const g = S.gangs[x.gang];
+  if (g.rel < x.minRel) return toast(`${GG[x.gang].n} vertrauen dir noch nicht genug (Beziehung ${x.minRel} nötig).`, 'y');
+  if (g.debt > 0) return toast(`Begleiche erst deine Schulden bei ${GG[x.gang].n}.`, 'r');
+  if (S.orders.filter(o => o.illegal).length >= hotLimit()) return toast(`Höchstens ${hotLimit()} heiße Ladungen gleichzeitig.`, 'y');
   if (!canStore(x.pk)) return toast('Kein Platz im Lager.', 'r');
   const o = genOrder({ city: x.city, ct: 'shop', pk: x.pk, cold: false, express: false });
-  o.cust = `${CB[x.type].n} für „${x.alias}“`; o.pay = x.pay; o.illegal = x.type; o.win *= 1.5;
+  o.cust = `${CB[x.type].n} für ${GG[x.gang].n}`; o.pay = x.pay; o.illegal = x.type; o.gang = x.gang; o.win *= 1.4;
   S.under.offers = S.under.offers.filter(y => y !== x);
-  admit(o); toast(`Die Ware ist im Lager versteckt. Ab jetzt zählt jede Kontrolle.`, 'y');
+  admit(o); toast(`Deal mit ${GG[x.gang].boss}. Die Ware liegt versteckt im Lager – vermassel es nicht.`, 'y');
 }
-function busted(tr, ill) {
-  let fine = 0;
-  for (const o of ill) { S.orders = S.orders.filter(x => x !== o); fine += o.pay * 1.2; }
-  spend(fine, 'fines'); addRep(-6); S.heat = Math.min(100, S.heat + 18); S.stats.busted = (S.stats.busted || 0) + 1;
-  const v = S.vehicles.find(x => x.id === tr.vid); if (v) v.impound = S.time + DAY;
-  sfx('siren');
-  toast(`Polizeikontrolle! Ware beschlagnahmt, ${money(fine)} Strafe${v ? `, ${v.name} für einen Tag festgesetzt` : ''}.`, 'r', true);
+function hotLimit() { return 2 + stage(); }
+function gangFail(o, why) {
+  if (!o.gang) return;
+  const G = GG[o.gang]; const g = S.gangs[o.gang];
+  if (why === 'late') { addRel(o.gang, -8); toast(`${G.boss}: „Zu spät. Das merke ich mir.“ (${G.n} −8)`, 'r', true); return; }
+  addRel(o.gang, -15); g.debt += Math.round(o.pay * .5); g.due = S.time + DAY * 3;
+  toast(`${G.boss} verlangt ${money(g.debt)} Entschädigung – du hast drei Tage.`, 'r', true);
+}
+function payDebt(gid) { const g = S.gangs[gid]; if (!g || g.debt <= 0) return; if (S.money < g.debt) return toast('Nicht genug Geld.', 'r'); spend(g.debt, 'fines'); g.debt = 0; addRel(gid, 5); toast(`Schulden bei ${GG[gid].n} beglichen.`, 'g'); }
+function smuggleDone(o) {
+  S.stats.smuggled = (S.stats.smuggled || 0) + 1; S.stats.dirty = (S.stats.dirty || 0) + o.pay;
+  S.heat = Math.min(100, S.heat + 3 + CB[o.illegal].risk * 40);
+  if (o.gang) { addRel(o.gang, o.tier >= 4 ? 8 : 4); if (o.late) gangFail(o, 'late'); }
+}
+// --- trade ---
+function drugBuy(gid) { const g = GG[gid]; return Math.round(30 * (.8 + hashF(gid + S.day) * .5) * (warIn(g.home) ? 1.4 : 1) * (S.gangs[gid].rel >= 50 ? .85 : 1)); }
+function drugSell(cid) { const geo = geoTier(cid); return Math.round(30 * (1.2 + geo * .55) * (.8 + hashF(cid + S.day) * .6) * (warIn(cid) ? 1.6 : 1) * (turfOf(cid) ? 1 : 1.15)); }
+function tradeSupply(gid) { return Math.round(40 * stage() * (S.gangs[gid].rel >= 50 ? 2 : S.gangs[gid].rel >= 15 ? 1.4 : 1)); }
+function tradeBuy(gid, cid, n) {
+  const g = S.gangs[gid]; if (g.rel <= -15) return toast(`${GG[gid].n} verkaufen dir nichts.`, 'r');
+  if (g.debt > 0) return toast(`Erst die Schulden bei ${GG[gid].n} begleichen.`, 'r');
+  if (S.orders.filter(o => o.illegal).length >= hotLimit()) return toast(`Höchstens ${hotLimit()} heiße Ladungen gleichzeitig.`, 'y');
+  n = Math.min(n, tradeSupply(gid), Math.floor(Math.max(0, S.money) / drugBuy(gid)), capacity() - stored());
+  if (n < 5) return toast('Zu wenig Geld oder Lagerplatz.', 'r');
+  const cost = n * drugBuy(gid); spend(cost, 'prod');
+  const o = genOrder({ city: cid, ct: 'shop', pk: n, cold: false, express: false });
+  o.cust = `Eigener Stoff von ${GG[gid].n}`; o.pay = n * drugSell(cid); o.illegal = 'drugs'; o.trade = gid; o.win *= 2;
+  admit(o); addRel(gid, 2);
+  toast(`${num(n)} Einheiten für ${money(cost)} gekauft. Verkauf in ${CITY[cid].n} bringt ${money(o.pay)}.`, 'y');
+}
+// --- gang services, protection, attacks ---
+function hitCost() { return Math.round(8000 + avgRev() * 1.2); }
+function gangHit(gid) {
+  const g = S.gangs[gid]; if (g.rel < 30) return;
+  const cities = GG[gid].turf.filter(c => S.markets[c]); const c = cities.sort((a, b) => rivalStr(b) - rivalStr(a))[0];
+  if (!c || !rivalStr(c)) return toast('In deren Gebiet gibt es gerade keine Konkurrenz zum Einschüchtern.', 'y');
+  if (!tryBuy(hitCost(), 'den Auftrag')) return;
+  for (const x of S.rivals) if (x.pres[c]) x.pres[c] = Math.max(0, x.pres[c] - 2);
+  S.heat = Math.min(100, S.heat + 8);
+  toast(`${GG[gid].n} haben der Konkurrenz in ${CITY[c].n} einen Besuch abgestattet. Marktanteil jetzt ${Math.round(share(c) * 100)} %.`, 'y');
+}
+function gangAttack(gid) {
+  const G = GG[gid]; const kinds = ['fire', 'beat', 'threat'];
+  if (S.vehicles.filter(v => v.state === 'idle').length > 1) kinds.push('theft');
+  const k = pick(kinds);
+  if (k === 'fire') { const lost = S.orders.filter(o => o.state === 'sort' || o.state === 'ready').slice(0, 4); S.orders = S.orders.filter(o => !lost.includes(o)); spend(Math.round(2000 + S.warehouses[0].inv * .03), 'repair'); toast(`Brandanschlag der ${G.n}! ${lost.length} Aufträge verbrannt, die Halle muss repariert werden.`, 'r', true); }
+  if (k === 'beat') { const e = S.staff.filter(e => !e.founder && !S.vehicles.some(v => v.driver === e.id && v.state !== 'idle')); const v = pick(e.length ? e : []); if (v) { S.vehicles.forEach(x => { if (x.driver === v.id) x.driver = null; }); S.staff = S.staff.filter(x => x !== v); toast(`${G.n} haben ${v.name} zusammengeschlagen. ${v.name} kündigt.`, 'r', true); } }
+  if (k === 'theft') { const v = pick(S.vehicles.filter(v => v.state === 'idle')); S.vehicles = S.vehicles.filter(x => x !== v); toast(`${G.n} haben ${v.name} vom Hof gestohlen!`, 'r', true); }
+  if (k === 'threat') { S.heat = Math.min(100, S.heat + 15); toast(`${G.boss} hat der Polizei einen Tipp über dich gegeben. Fahndungsdruck +15.`, 'r', true); }
+  sfx('bad');
 }
 function underDay() {
   S.heat = Math.max(0, S.heat - 2.5);
-  if (stage() >= 2 && S.day >= S.under.refresh) genSmuggle();
+  if (stage() < 2) return;
+  if (S.day >= S.under.refresh) genSmuggle();
+  for (const G of activeGangs()) {
+    const g = S.gangs[G.id];
+    if (g.debt > 0 && S.time > g.due) { addRel(G.id, -10); g.debt = Math.round(g.debt * 1.5); g.due = S.time + DAY * 2; gangAttack(G.id); }
+    else if (g.rel <= -40 && Math.random() < .3) gangAttack(G.id);
+    g.rel += g.rel > 0 ? -.5 : g.rel < 0 ? .5 : 0;
+  }
+  // gang wars
+  for (const w of S.wars.slice()) if (w.until <= S.time) {
+    const sa = S.gangs[w.a].str * (1 + (w.side === w.a ? .5 : 0)) * rnd(.7, 1.3), sb = S.gangs[w.b].str * (1 + (w.side === w.b ? .5 : 0)) * rnd(.7, 1.3);
+    const win = sa > sb ? w.a : w.b, lose = win === w.a ? w.b : w.a;
+    S.turf[w.city] = win; S.gangs[win].str += .5; S.gangs[lose].str = Math.max(2, S.gangs[lose].str - .5);
+    if (w.side) addRel(w.side, w.side === win ? 10 : -5);
+    S.wars = S.wars.filter(x => x !== w);
+    toast(`Bandenkrieg vorbei: ${GG[win].n} kontrollieren jetzt ${CITY[w.city].n}.`, w.side === win ? 'g' : 'o', true);
+  }
+  const gs = activeGangs();
+  if (gs.length >= 2 && S.wars.length < 2 && Math.random() < .2) {
+    const a = pick(gs); const others = gs.filter(g => g.id !== a.id); const b = pick(others);
+    const cs = Object.keys(S.turf).filter(c => S.turf[c] === b.id); const city = pick(cs.length ? cs : b.turf);
+    S.wars.push({ a: a.id, b: b.id, city, until: S.time + DAY * rint(3, 5), side: null });
+    toast(`Bandenkrieg in ${CITY[city].n}: ${a.n} gegen ${b.n}! Schmuggel dorthin zahlt mehr – aber es knallt.`, 'o', true);
+    S.ev.next = Math.min(S.ev.next, 3); S.warPick = S.wars[S.wars.length - 1];
+  }
   if (S.heat >= 65 && Math.random() < (S.heat - 50) / 100) {
     const fine = Math.round(5000 + Math.max(0, S.money) * .05);
     spend(fine, 'fines'); addRep(-10); S.heat = Math.max(0, S.heat - 30);
+    for (const o of S.orders.filter(o => o.illegal)) gangFail(o, 'bust');
     S.orders = S.orders.filter(o => !o.illegal); addFx('spawn', .3, DAY, 'Ermittlungen laufen');
     sfx('siren');
     toast(`Razzia im Lager! ${money(fine)} Strafe, alle heißen Waren weg, Kunden meiden dich einen Tag.`, 'r', true);
   }
 }
+// --- police checkpoint chase ---
+function startChase(tr, ill) {
+  const v = S.vehicles.find(x => x.id === tr.vid);
+  tr.loads = tr.loads.filter(l => !ill.some(o => o.id === l.oid));
+  if (S.chase) { busted(v, ill, 1); return; }
+  S.chase = { vid: tr.vid, oids: ill.map(o => o.id), until: S.time + 25, city: ill[0].city };
+  sfx('siren');
+}
+function chaseOdds() {
+  const c = S.chase; if (!c) return {};
+  const v = S.vehicles.find(x => x.id === c.vid); const t = v ? VT[v.type] : VT.van;
+  const ords = c.oids.map(id => S.orders.find(o => o.id === id)).filter(Boolean);
+  const val = ords.reduce((a, o) => a + o.pay, 0);
+  const tg = turfOf(c.city); const ally = tg && S.gangs[tg].rel >= 30;
+  return { run: clamp(.3 + Math.min(.25, t.speed / 3200) + (v ? v.up.spd * .05 : 0) - S.heat / 400, .1, .75), bribe: clamp(.6 + (ally ? .25 : 0) - S.heat / 250, .2, .92), cost: Math.round(val * .35 + 1000), val, ally, v, ords };
+}
+function resolveChase(k) {
+  const c = S.chase; if (!c) return; const O = chaseOdds(); S.chase = null; U.modal = null;
+  const win = () => { for (const o of O.ords) { o.delivered = o.pk; earn(o.pay); completeOrder(o); } };
+  if (k === 'run') {
+    if (Math.random() < O.run) { if (O.v) O.v.cond = Math.max(0, O.v.cond - 25); S.heat = Math.min(100, S.heat + 10); win(); toast('Durchgebrochen! Die Ware ist durch, aber jetzt sucht dich die halbe Polizei.', 'g', true); }
+    else busted(O.v, O.ords, 1.6);
+  } else if (k === 'bribe') {
+    if (S.money < O.cost) return busted(O.v, O.ords, 1);
+    spend(O.cost, 'fines');
+    if (Math.random() < O.bribe) { win(); toast(`Der Beamte zählt das Geld und winkt durch. ${O.ally ? 'Die Bande hat ihre Leute bei der Polizei.' : ''}`, 'g', true); }
+    else { S.heat = Math.min(100, S.heat + 10); busted(O.v, O.ords, 1.3); }
+  } else busted(O.v, O.ords, 1);
+}
+function busted(v, ill, mult) {
+  let fine = 0;
+  for (const o of ill) { S.orders = S.orders.filter(x => x !== o); fine += o.pay * 1.2 * mult; gangFail(o, 'bust'); }
+  spend(fine, 'fines'); addRep(-6); S.heat = Math.min(100, S.heat + 18); S.stats.busted = (S.stats.busted || 0) + 1;
+  if (v) v.impound = S.time + DAY * mult;
+  sfx('siren');
+  toast(`Festgenommen! Ware beschlagnahmt, ${money(fine)} Strafe${v ? `, ${v.name} festgesetzt` : ''}.`, 'r', true);
+}
+function chaseModal() {
+  const c = S.chase; const O = chaseOdds();
+  return `<div class="row"><div class="ico" style="background:#3a0d18;color:#ff5d61">${ic('bolt')}</div><div class="grow"><div class="sub" style="color:var(--bad)">Polizeisperre · noch ${Math.max(0, Math.ceil(c.until - S.time))} s</div><div class="ttl" style="font-size:20px">Blaulicht vor ${esc(CITY[c.city].n)}!</div></div></div>
+    <p>Die Polizei winkt ${O.v ? esc(O.v.name) : 'deinen Wagen'} raus. Im Laderaum: Ware im Wert von <b>${money(O.val)}</b>. Was tust du?</p>
+    <div class="choice">
+      <button class="btn" data-act="chase" data-a="run">Gas geben und durchbrechen<small>${Math.round(O.run * 100)} % Erfolg · scheitert es, wird die Strafe viel höher</small></button>
+      <button class="btn s" data-act="chase" data-a="bribe">Beamten bestechen · ${money(O.cost)}<small>${Math.round(O.bribe * 100)} % Erfolg${O.ally ? ' · die Bande hat hier Polizisten gekauft' : ''}</small></button>
+      <button class="btn r" data-act="chase" data-a="give">Aufgeben<small>Ware weg, normale Strafe, Bande verlangt Entschädigung</small></button>
+    </div>`;
+}
 function vUnder() {
-  if (stage() < 2) return `<h1>Unterwelt</h1><div class="card dark"><div class="row"><div class="ico">${ic('mask')}</div><div class="sub">Ab Stufe 2 melden sich zwielichtige Kontakte mit lukrativen, aber gefährlichen Aufträgen.</div></div></div>`;
-  const h = S.heat; const act = S.orders.filter(o => o.illegal);
-  return `<div class="row sb"><h1>Unterwelt</h1><span class="chip ${h >= 60 ? 'r' : h >= 30 ? 'y' : ''}">${heatLabel()}</span></div>
-  <div class="card dark">
+  if (stage() < 2) return `<h1>Unterwelt</h1><div class="card dark"><div class="row"><div class="ico">${ic('mask')}</div><div class="sub">Ab Stufe 2 melden sich die Banden der Stadt bei dir – mit lukrativen, aber gefährlichen Geschäften.</div></div></div>`;
+  const h = S.heat; const act = S.orders.filter(o => o.illegal); const sub = U.sub.under || 'gangs';
+  const seg = `<div class="seg">${[['gangs', 'Banden'], ['jobs', 'Aufträge'], ['trade', 'Stoffhandel'], ['police', 'Fahndung']].map(([k, n]) => `<button class="${sub === k ? 'on' : ''}" data-act="sub" data-a="under:${k}">${n}</button>`).join('')}</div>`;
+  const head = `<div class="row sb"><h1>Unterwelt</h1><span class="chip ${h >= 60 ? 'r' : h >= 30 ? 'y' : ''}">${ic('mask')}Fahndung ${Math.round(h)} %</span></div>${seg}`;
+  const wars = S.wars.filter(w => w.until > S.time);
+  if (sub === 'gangs') return head + `
+    ${wars.map(w => `<div class="card" data-key="w-${w.city}" style="border-color:var(--bad);background:linear-gradient(120deg,#2a0f18,#151a30)"><div class="row sb"><div class="ttl">Bandenkrieg in ${esc(CITY[w.city].n)}</div><span class="chip r">${dur(w.until - S.time)}</span></div><div class="sub">${esc(GG[w.a].n)} gegen ${esc(GG[w.b].n)}${w.side ? ` · du unterstützt ${esc(GG[w.side].n)}` : ''}. Schmuggel dorthin zahlt +60 %, Kontrollen +30 %.</div>${w.side ? '' : `<div class="row" style="gap:6px;flex-wrap:wrap">${btn('Für ' + esc(GG[w.a].n) + ' · ' + money(warCost()), 'warside', w.city + ':' + w.a, 's sm', S.money < warCost())}${btn('Für ' + esc(GG[w.b].n) + ' · ' + money(warCost()), 'warside', w.city + ':' + w.b, 's sm', S.money < warCost())}</div>`}</div>`).join('')}
+    <div class="grid">${activeGangs().map(G => { const g = S.gangs[G.id]; const turf = Object.keys(S.turf).filter(c => S.turf[c] === G.id);
+      return `<div class="card dark" data-key="g-${G.id}">
+        <div class="row"><div class="ico" style="background:${G.col};color:#0a1424;border-radius:50%">${ic('mask')}</div><div class="grow"><div class="ttl">${esc(G.n)}</div><div class="sub">Boss: ${esc(G.boss)} · Stärke ${nf1.format(g.str)}</div></div><span class="chip ${relCls(g.rel)}">${relLabel(g.rel)}</span></div>
+        <div class="row"><span class="sub" style="width:70px">Beziehung</span><div class="grow">${bar((g.rel + 100) / 200, g.rel < -15 ? 'r' : g.rel < 15 ? 'w' : g.rel < 50 ? 'y' : 'g')}</div><span class="sub num">${Math.round(g.rel)}</span></div>
+        <div class="sub">Gebiet: ${turf.map(c => esc(CITY[c].n)).join(', ') || '–'}${g.prot > S.time ? ` · <span style="color:var(--good)">schützt dich noch ${dur(g.prot - S.time)}</span>` : ''}</div>
+        ${g.debt > 0 ? `<div class="row sb"><span class="sub" style="color:var(--bad)">Schulden ${money(g.debt)} · fällig in ${dur(g.due - S.time)}</span>${btn('Bezahlen', 'paydebt', G.id, 'sm', S.money < g.debt)}</div>` : ''}
+        <div class="row" style="gap:6px;flex-wrap:wrap">${btn('Schutz kaufen · ' + money(protCost()), 'protect', G.id, 's sm', S.money < protCost() || g.rel <= -15)}${g.rel >= 30 ? btn('Konkurrenz einschüchtern · ' + money(hitCost()), 'hit', G.id, 's sm', S.money < hitCost()) : ''}</div>
+      </div>`; }).join('')}</div>
+    <div class="sub">Schutz senkt das Kontrollrisiko im Gebiet der Bande für fünf Tage um die Hälfte. Ab Beziehung 30 erledigen die Banden auch Drecksarbeit gegen deine Konkurrenz. Wer Deals platzen lässt, bekommt Ärger: Schulden, Brandanschläge, gestohlene Fahrzeuge.</div>`;
+  if (sub === 'jobs') return head + `
+    <section class="sec"><h2>Heiße Ladungen <span class="cnt">${act.length}/${hotLimit()}</span></h2>${act.length ? `<div class="list">${act.map(o => `<div class="card dark" data-key="ia-${o.id}"><div class="row sb"><div class="ttl">${esc(o.cust)}</div><span class="chip r">Risiko ${Math.round(controlRisk(o) * 100)} %</span></div><div class="sub">${num(o.pk)} Pakete nach ${esc(CITY[o.city].n)} · ${money(o.pay)} · ${o.state === 'sort' ? 'wird umgepackt' : o.state === 'ready' ? 'wartet auf Fahrzeug' : 'unterwegs'}${o.late ? ' · <span style="color:var(--bad)">zu spät!</span>' : ''}</div></div>`).join('')}</div>` : '<div class="empty">Gerade nichts Heißes im Lager.</div>'}</section>
+    <section class="sec"><div class="sech"><h2>Angebote der Banden</h2><span class="sub">neue in ${Math.max(0, S.under.refresh - S.day)} Tagen</span></div><div class="grid">${S.under.offers.map(x => {
+      const C = CB[x.type]; const G = GG[x.gang]; const g = S.gangs[x.gang]; const fake = { illegal: x.type, tier: geoTier(x.city), city: x.city }; const risk = controlRisk(fake); const lock = g.rel < x.minRel;
+      return `<div class="card dark ${lock ? 'dim' : ''}" data-key="${x.id}">
+        <div class="row"><div class="ico" style="background:${G.col};color:#0a1424;border-radius:50%">${ic('mask')}</div><div class="grow"><div class="ttl">${C.n} · ${esc(G.n)}</div><div class="sub">${num(x.pk)} Pakete nach ${esc(CITY[x.city].n)}${geoTier(x.city) >= 4 ? ' · international' : ''}${warIn(x.city) ? ' · Kriegsgebiet' : ''}</div></div><div class="big" style="color:#c084fc">${money(x.pay)}</div></div>
+        <div class="chips"><span class="chip ${risk > .25 ? 'r' : risk > .1 ? 'y' : 'g'}">Kontrollrisiko ${Math.round(risk * 100)} %</span><span class="chip">Bei Versagen ${money(x.pay * .5)} Schulden</span></div>
+        ${lock ? `<span class="chip">${ic('lock')}Beziehung ${x.minRel} nötig</span>` : btn('Deal annehmen', 'smuggle', x.id, 'w', act.length >= hotLimit() || !canStore(x.pk) || g.debt > 0)}
+      </div>`; }).join('') || '<div class="empty">Die Banden melden sich bald.</div>'}</div></section>`;
+  if (sub === 'trade') {
+    const dest = U.tradeTo && S.markets[U.tradeTo] ? U.tradeTo : Object.keys(S.markets).sort((a, b) => drugSell(b) - drugSell(a))[0];
+    return head + `<div class="sub">Kaufe Stoff bei einer Bande und verkaufe ihn in einer anderen Stadt. Preise ändern sich jeden Tag, Kriegsgebiete zahlen am meisten. Die Ware läuft durch dein Lager und muss die Kontrollen überstehen.</div>
+    <section class="sec"><h2>Verkaufen in</h2><div class="chips">${Object.keys(S.markets).sort((a, b) => drugSell(b) - drugSell(a)).map(c => `<button class="chip ${c === dest ? 'o' : ''}" style="border:0;cursor:pointer" data-act="tradeto" data-a="${c}">${esc(CITY[c].n)} ${money(drugSell(c))}</button>`).join('')}</div></section>
+    <section class="sec"><h2>Einkaufen bei</h2><div class="grid">${activeGangs().map(G => { const g = S.gangs[G.id]; const buy = drugBuy(G.id), sell = drugSell(dest); const sup = tradeSupply(G.id);
+      return `<div class="card dark" data-key="t-${G.id}"><div class="row"><div class="ico" style="background:${G.col};color:#0a1424;border-radius:50%">${ic('mask')}</div><div class="grow"><div class="ttl">${esc(G.n)}</div><div class="sub">Einkauf ${money(buy)} · Verkauf in ${esc(CITY[dest].n)} ${money(sell)} · bis ${num(sup)} Einheiten</div></div><span class="chip ${sell > buy ? 'g' : 'r'}">${sell > buy ? '+' : ''}${money(sell - buy)}/Stück</span></div>
+        <div class="row" style="gap:6px;flex-wrap:wrap">${[25, 100].filter(n => n <= sup).map(n => btn(`${n} kaufen · ${money(n * buy)}`, 'trade', `${G.id}:${dest}:${n}`, 's sm', g.rel <= -15 || g.debt > 0 || S.money < n * buy)).join('')}${btn('Maximum', 'trade', `${G.id}:${dest}:${sup}`, 'sm', g.rel <= -15 || g.debt > 0)}</div></div>`; }).join('')}</div></section>`;
+  }
+  return head + `<div class="card dark">
     <div class="row sb"><span class="ttl">Fahndungsdruck</span><span class="big">${Math.round(h)} %</span></div>
     ${bar(h / 100, h >= 60 ? 'r' : h >= 30 ? 'y' : 'g')}
-    <div class="sub">Jede Schmuggelfahrt erhöht den Druck. Je höher er ist, desto öfter wird kontrolliert. Über 65 % drohen Razzien. Der Druck sinkt jeden Tag ein wenig. Internationale Fahrten werden schärfer kontrolliert.</div>
-    <div class="row sb"><span class="sub">${num(S.stats.smuggled || 0)} Fahrten durchgebracht · ${num(S.stats.busted || 0)}× erwischt · ${money(S.stats.dirty || 0)} Umsatz</span>${btn('Bestechen · ' + money(bribeCost()), 'bribe', '', 's sm', h < 1 || S.money < bribeCost())}</div>
-  </div>
-  <section class="sec"><h2>Heiße Ladungen unterwegs <span class="cnt">${act.length}/3</span></h2>${act.length ? `<div class="list">${act.map(o => `<div class="card dark" data-key="ia-${o.id}"><div class="row sb"><div class="ttl">${esc(o.cust)}</div><span class="chip r">Kontrollrisiko ${Math.round(controlRisk(o) * 100)} %</span></div><div class="sub">${num(o.pk)} Pakete nach ${esc(CITY[o.city].n)} · ${money(o.pay)} · ${o.state === 'sort' ? 'wird umgepackt' : o.state === 'ready' ? 'wartet auf Fahrzeug' : 'unterwegs'}</div></div>`).join('')}</div>` : '<div class="empty">Gerade nichts Heißes im Lager.</div>'}</section>
-  <section class="sec"><div class="sech"><h2>Angebote</h2><span class="sub">neue in ${Math.max(0, S.under.refresh - S.day)} Tagen</span></div><div class="grid">${S.under.offers.map(x => {
-    const C = CB[x.type]; const risk = Math.min(.85, C.risk * (1 + h / 40) * (geoTier(x.city) >= 4 ? 1.6 : 1));
-    return `<div class="card dark" data-key="${x.id}">
-      <div class="row"><div class="ico" style="color:#c084fc">${ic('mask')}</div><div class="grow"><div class="ttl">${C.n}</div><div class="sub">Kontakt „${esc(x.alias)}“ · ${num(x.pk)} Pakete nach ${esc(CITY[x.city].n)}</div></div><div class="big" style="color:#c084fc">${money(x.pay)}</div></div>
-      <div class="chips"><span class="chip ${risk > .25 ? 'r' : risk > .1 ? 'y' : 'g'}">Kontrollrisiko ${Math.round(risk * 100)} %</span><span class="chip">${C.mult}× normaler Lohn</span></div>
-      <div class="sub">Erwischt: Ware weg, Strafe ${money(x.pay * 1.2)}, Fahrzeug einen Tag festgesetzt, Ruf −6.</div>
-      ${btn('Annehmen', 'smuggle', x.id, 'w', act.length >= 3 || !canStore(x.pk))}
-    </div>`; }).join('') || '<div class="empty">Deine Kontakte melden sich bald.</div>'}</div></section>`;
+    <div class="sub">Jede Schmuggelfahrt erhöht den Druck. Je höher er ist, desto öfter gibt es Polizeisperren. Über 65 % drohen Razzien. Schutz einer Bande und Bestechung helfen.</div>
+    <div class="row sb"><span class="sub">${num(S.stats.smuggled || 0)} Fahrten durchgebracht · ${num(S.stats.busted || 0)}× erwischt · ${money(S.stats.dirty || 0)} Schwarzumsatz</span>${btn('Polizei bestechen · ' + money(bribeCost()), 'bribe', '', 's sm', h < 1 || S.money < bribeCost())}</div>
+  </div>`;
 }
-
+function protCost() { return Math.round(2500 + avgRev() * .4 * stage()); }
+function protect(gid) { const g = S.gangs[gid]; if (g.rel <= -15) return; if (!tryBuy(protCost(), 'das Schutzgeld')) return; g.prot = S.time + DAY * 5; addRel(gid, 6); toast(`${GG[gid].n} halten jetzt ihre Hand über dich.`, 'g'); }
+function warCost() { return Math.round(5000 + avgRev() * .8); }
+function warSide(city, gid) { const w = S.wars.find(x => x.city === city && x.until > S.time); if (!w || w.side) return; if (!tryBuy(warCost(), 'die Unterstützung')) return; w.side = gid; addRel(gid, 15); addRel(gid === w.a ? w.b : w.a, -25); S.heat = Math.min(100, S.heat + 6); toast(`Du stehst jetzt auf der Seite der ${GG[gid].n}.`, 'y'); }
 
 /* ---------- day/night, sound ---------- */
 function gameHour() { return (6 + S.dayT / DAY * 24) % 24; }
@@ -1570,7 +1777,7 @@ function autopilot() {
 function autopilotRun() {
   const A = S.auto; if (!A) return;
   if (A.events) {
-    if (S.ev.cur) { autoEvent(); }
+    if (S.ev.cur && !EVENTS[S.ev.cur.id].crime) { autoEvent(); }
     ensureMissions();
     for (const k of ['daily', 'weekly']) (S.missions[k] || []).forEach((m, i) => { if (!m.claimed && mProg(m) >= m.n) claimMission(k, i); });
     for (const a of ACH) if (!S.ach[a.id] && a.v() >= a.g) claimAch(a.id);
@@ -1649,7 +1856,7 @@ function autoPanel() {
     <div class="row sb"><div class="row"><div class="ico">${ic('bolt')}</div><div><div class="ttl">Autopilot ${all ? '<span class="chip g">läuft</span>' : AP_KEYS.some(([k]) => S.auto[k]) ? '<span class="chip g">Routine</span>' : '<span class="chip">aus</span>'}</div><div class="sub">Routine läuft von selbst. Wachstum und Konkurrenzkampf entscheidest du – oder schalte sie dazu.</div></div></div>${btn(all ? 'Alles aus' : 'Alles an', 'auto', 'all', all ? 's sm' : 'sm')}</div>
     <div class="chips">${AP_KEYS.map(([k, n]) => `<button class="chip ${S.auto[k] ? 'g' : ''}" style="border:0;cursor:pointer;min-height:30px" data-act="auto" data-a="${k}">${S.auto[k] ? ic('check') : ic('x')}${n}</button>`).join('')}</div>
     <div class="row sb"><span class="sub">Ton</span>${btn(ic('speaker') + (S.sound ? 'An' : 'Aus'), 'sound', '', S.sound ? 's sm' : 's sm')}</div>
-    <div class="row sb"><span class="sub">Spieltempo</span><div class="seg" style="flex:none">${[1, 2, 4].map(x => `<button class="${S.speed === x ? 'on' : ''}" data-act="speed" data-a="${x}">${x}×</button>`).join('')}</div></div>
+    <div class="row sb"><span class="sub">Spieltempo</span><div class="seg" style="flex:none">${[1, 2, 4, 8].map(x => `<button class="${S.speed === x ? 'on' : ''}" data-act="speed" data-a="${x}">${x}×</button>`).join('')}</div></div>
   </section>`;
 }
 
@@ -1667,10 +1874,11 @@ function migrate(o) {
   m.auto = Object.assign({ accept: 1, dispatch: 1, care: 1, events: 1, research: 0, build: 0 }, o.auto || {});
   m.speed = o.speed || 1;
   if ((o.v || 1) < 2) { m.v = 2; m.speed = 1; m.auto.research = 0; m.auto.build = 0; m.stageMax = o.lastStage || 1; }
-  if (![1, 2, 4].includes(m.speed)) m.speed = 1;
+  if (![1, 2, 4, 8].includes(m.speed)) m.speed = 1;
   if (!o.rivals) m.rivals = initRivals();
   for (const k of ['boost', 'war']) m[k] = o[k] || {};
   m.tenders = o.tenders || []; m.news = o.news || [];
+  m.gangs = Object.assign(initGangs(), o.gangs || {}); m.turf = o.turf || initTurf(); m.wars = o.wars || []; m.chase = null;
   m.story = o.story || { i: 0 }; m.crisis = o.crisis || null; m.crisisT = o.crisisT || 9; m.daily = o.daily || { last: '', streak: 0 }; m.sound = o.sound == null ? 1 : o.sound;
   m.factories = o.factories || []; m.sat = o.sat || {}; m.heat = o.heat || 0; m.under = o.under || { offers: [], refresh: 0 }; m.won = o.won || 0;
   for (const w of m.warehouses) w.m = Object.assign({ size: 1, shelves: 0, conv: 0, sorter: 0, docks: 1, park: 1, robot: 0, rail: 0, air: 0, port: 0, mega: 0 }, w.m);
@@ -1929,6 +2137,12 @@ function drawMap(cv, T) {
     g.strokeStyle = 'rgba(255,164,82,.45)'; g.lineWidth = 1.6; g.setLineDash([5, 5]); g.lineDashOffset = -T * 12; g.beginPath(); g.moveTo(a[0], a[1]);
     for (let i = 1; i <= 20; i++) { const p = arc(a, b, i / 20, bend); g.lineTo(p[0], p[1]); } g.stroke(); g.setLineDash([]);
   }
+  // gang turf and wars
+  if (stage() >= 2) for (const cid in S.turf) {
+    const gid = turfOf(cid); if (!gid) continue; const [x, y] = Pm(CITY[cid].lon, CITY[cid].lat);
+    g.strokeStyle = GG[gid].col; g.globalAlpha = .55; g.lineWidth = 1.5; g.setLineDash([3, 4]); g.beginPath(); g.arc(x, y, 19, 0, 7); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+    if (warIn(cid)) { const pr = 22 + (T * 18) % 14; g.strokeStyle = `rgba(255,93,97,${1 - ((T * 18) % 14) / 14})`; g.lineWidth = 2.5; g.beginPath(); g.arc(x, y, pr, 0, 7); g.stroke(); g.strokeStyle = '#ff5d61'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(x + 14, y - 24); g.lineTo(x + 24, y - 14); g.moveTo(x + 24, y - 24); g.lineTo(x + 14, y - 14); g.stroke(); }
+  }
   // rival traffic (cosmetic)
   activeRivals().forEach((x, ri) => {
     const home = RV[x.id].home; const cs = Object.keys(x.pres).filter(c => c !== home && x.pres[c] > 1).slice(0, 4);
@@ -2063,7 +2277,7 @@ function tabDot(id) {
   if (id === 'hq') return S.orders.some(o => o.state === 'ready' && o.left > 0 && !dispatchBlock(o)) && !staffOf('dispatcher').length;
   if (id === 'research') return !S.research.cur && RESEARCH.some(r => researchState(r) === 'open' && S.money >= r.cost);
   if (id === 'goals') return claimableCount() > 0;
-  if (id === 'under') return stage() >= 2 && (S.heat >= 60 || (S.under.offers.length > 0 && !S.stats.smuggled));
+  if (id === 'under') return stage() >= 2 && (S.heat >= 60 || Object.values(S.gangs).some(g => g.debt > 0) || S.wars.some(w => !w.side && w.until > S.time) || (S.under.offers.length > 0 && !S.stats.smuggled));
   if (id === 'rivals') return S.tenders.some(t => !t.bid) || S.rivals.some(x => !x.gone && canTakeover(x) && S.money >= takeoverPrice(x));
   if (id === 'fleet') return S.vehicles.some(v => v.cond <= 8 || (needsDriver(v) && !driverOf(v)));
   return false;
@@ -2356,7 +2570,7 @@ function vFinance() {
     chart = `<svg viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Umsatz, Kosten und Gewinn der letzten Tage">${s}</svg>`;
   }
   const br = last ? last.br : L.exp;
-  const names = { salary: 'Gehälter', maint: 'Wartung', fuel: 'Kraftstoff & Energie', rent: 'Lagermiete', power: 'Strom', ins: 'Versicherung', repair: 'Reparaturen', interest: 'Kreditzinsen', tax: 'Steuern (15 % auf Gewinn)', prod: 'Rohstoffe für Produktion', fines: 'Strafen & Bestechung', other: 'Sonstiges' };
+  const names = { salary: 'Gehälter', maint: 'Wartung', fuel: 'Kraftstoff & Energie', rent: 'Lagermiete', power: 'Strom', ins: 'Versicherung', repair: 'Reparaturen', interest: 'Kreditzinsen', tax: 'Steuern (15 % auf Gewinn)', prod: 'Rohstoffe & Wareneinkauf', fines: 'Strafen & Bestechung', other: 'Sonstiges' };
   const ml = maxLoan();
   return `<h1>Finanzen</h1>
   <div class="kpis">
@@ -2421,12 +2635,15 @@ function vMore() {
 function renderModal() {
   const el = document.getElementById('overlay');
   const M = U.modal;
+  if (S.chase && (!M || M.type !== 'chase')) { U.modal = { type: 'chase' }; return renderModal(); }
+  if (M && M.type === 'chase' && !S.chase) { U.modal = null; return renderModal(); }
   if (!M && S.ev.cur) { U.modal = { type: 'event' }; return renderModal(); }
   if (!M) { if (el.innerHTML) { el.innerHTML = ''; el.dataset.type = ''; } return; }
   let body = '';
-  if (M.type === 'event' && S.ev.cur) {
+  if (M.type === 'chase' && S.chase) body = chaseModal();
+  else if (M.type === 'event' && S.ev.cur) {
     const E = EVENTS[S.ev.cur.id]; const p = S.ev.cur.p;
-    body = `<div class="row"><div class="ico">${ic('bolt')}</div><div class="grow"><div class="sub">Ereignis</div><div class="ttl" style="font-size:19px;white-space:normal">${E.title}</div></div></div><p>${esc(E.text(p))}</p><div class="choice">${E.choices(p).map((c, i) => `<button class="btn ${i ? 's' : ''}" data-act="evchoice" data-a="${i}">${esc(c.t)}<small>${esc(c.s)}</small></button>`).join('')}</div>`;
+    body = `<div class="row"><div class="ico" ${E.crime ? 'style="background:#2a1748;color:#c084fc"' : ''}>${ic(E.crime ? 'mask' : 'bolt')}</div><div class="grow"><div class="sub">${E.crime ? 'Unterwelt' : 'Ereignis'}</div><div class="ttl" style="font-size:19px;white-space:normal">${E.title}</div></div></div><p>${esc(E.text(p))}</p><div class="choice">${E.choices(p).map((c, i) => `<button class="btn ${i ? 's' : ''}" data-act="evchoice" data-a="${i}">${esc(c.t)}<small>${esc(c.s)}</small></button>`).join('')}</div>`;
   } else if (M.type === 'event') { U.modal = null; return renderModal(); }
   else if (M.type === 'win') {
     body = `<div class="sub">Endkampf gewonnen</div><h1>Alleinherrscher</h1><p>Alle Konkurrenten gehören jetzt ${esc(S.name)}. Du kontrollierst die Logistik der Welt. Mit dem Börsengang kannst du mit dauerhaftem Bonus neu angreifen.</p>${btn('Zur Firma', 'win', '', 'w')}`;
@@ -2459,7 +2676,7 @@ function renderModal() {
   } else if (M.type === 'confirm') {
     body = `<div class="ttl" style="font-size:19px;white-space:normal">${esc(M.title)}</div><p>${esc(M.text)}</p>${btn(esc(M.ok), M.act, '', M.danger ? 'r w' : 'w')}${btn('Abbrechen', 'close', '', 's w')}`;
   }
-  const html = `<div class="ovl" data-act="${M.type === 'event' ? '' : 'backdrop'}"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${body}</div></div>`;
+  const html = `<div class="ovl" data-act="${M.type === 'event' || M.type === 'chase' ? '' : 'backdrop'}"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${body}</div></div>`;
   if (el.dataset.type !== M.type) { el.dataset.type = M.type; el.innerHTML = html; } else patch(el, html);
 }
 
@@ -2495,6 +2712,13 @@ const ACT = {
   upfac(a) { upgradeFactory(a); },
   factarget(a) { const [id, c] = a.split(':'); const f = S.factories.find(x => x.id === id); if (f) f.target = c; },
   smuggle(a) { acceptSmuggle(a); },
+  chase(a) { resolveChase(a); },
+  paydebt(a) { payDebt(a); },
+  protect(a) { protect(a); },
+  hit(a) { gangHit(a); },
+  warside(a) { const [c, g] = a.split(':'); warSide(c, g); },
+  tradeto(a) { U.tradeTo = a; },
+  trade(a) { const [g, c, n] = a.split(':'); tradeBuy(g, c, +n); },
   bribe() { bribe(); },
   mapbig() { U.mapBig = !U.mapBig; },
   win() { U.modal = null; U.tab = 'company'; },

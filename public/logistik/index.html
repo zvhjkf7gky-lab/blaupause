@@ -438,12 +438,12 @@ const RS = Object.fromEntries(RESEARCH.map(r => [r.id, r]));
 let S = null;
 const U = { tab: 'hq', sub: { fleet: 'own', team: 'staff', goals: 'daily', contracts: 'active' }, wh: 0, modal: null, toasts: [], helpCd: 0, mapCity: null, roleF: 'all', confirmReset: false };
 
-function ledger() { return { rev: 0, inv: 0, exp: { salary: 0, maint: 0, fuel: 0, rent: 0, power: 0, ins: 0, repair: 0, interest: 0, tax: 0, prod: 0, fines: 0, other: 0 } }; }
+function ledger() { return { rev: 0, inv: 0, exp: { salary: 0, maint: 0, fuel: 0, rent: 0, power: 0, ins: 0, repair: 0, interest: 0, tax: 0, prod: 0, fines: 0, div: 0, other: 0 } }; }
 function initComps() { return [{ n: 'Nordwind Cargo', v: 2e6, g: .012 }, { n: 'Atlas Freight', v: 15e6, g: .009 }, { n: 'Meridian Logistics', v: 90e6, g: .007 }, { n: 'Pacific Line Group', v: 400e6, g: .005 }, { n: 'Orbis Express', v: 1.5e9, g: .004 }]; }
 
 function newGame(keep) {
   S = {
-    v: 2, name: keep ? keep.name : 'Elbe Logistik', money: 5000, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
+    v: 3, name: keep ? keep.name : 'Elbe Logistik', money: keep ? 5000 + keep.prestige.shares * 25000 : 5000, time: 0, day: 1, dayT: 0, xp: 0, level: 1, rep: 10,
     stats: { orders: 0, pkgs: 0, rev: 0, express: 0, intl: 0, late: 0, sorted: 0, contracts: 0, researched: 0, hires: 0, accepted: 0, cold: 0, tenders: 0, takeovers: 0, campaigns: 0 },
     rivals: initRivals(), boost: {}, war: {}, tenders: [], tenderT: 2, news: [], stageMax: 1,
     factories: [], sat: {}, heat: 0, under: { offers: [], refresh: 0 }, won: 0,
@@ -556,7 +556,7 @@ function addXp(x) {
   S.xp += x;
   while (S.xp >= xpNeed(S.level)) { S.xp -= xpNeed(S.level); S.level++; const bonus = levelBonus(S.level); S.money += bonus; toast(`Firmenlevel ${S.level} erreicht! Bonus ${money(bonus)}`, 'g'); sfx('level'); }
   const st = stage();
-  if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; }
+  if (st > S.lastStage) { S.lastStage = st; U.pendStage = st; }
 }
 function addRep(x) { S.rep = clamp(S.rep + x * (x > 0 && has('tracking') ? 1.5 : 1), 0, 100); }
 
@@ -688,7 +688,7 @@ function step(dt) {
   for (const e of S.staff) if (!e.founder || e.lvl < 5) e.xp = Math.min(staffNeed(e), e.xp + dt);
   // events
   if (!S.ev.cur) { S.ev.next -= dt; if (S.ev.next <= 0) { triggerEvent(); S.ev.next = rnd(80, 150); } }
-  S.apT += dt; if (S.apT >= 1) { S.apT -= 1; autopilot(); const st = stage(); if (st > S.lastStage) { S.lastStage = st; U.modal = { type: 'stage', st }; } }
+  S.apT += dt; if (S.apT >= 1) { S.apT -= 1; autopilot(); const st = stage(); if (st > S.lastStage) { S.lastStage = st; U.pendStage = st; } }
   if (S.tenders.length) tendersTick();
   if (S.factories.length) prodTick(dt);
   if (S.chase && S.time > S.chase.until) resolveChase('give');
@@ -752,6 +752,7 @@ function endDay() {
   let total = Object.values(L.exp).reduce((a, b) => a + b, 0);
   const pre = L.rev - total;
   if (pre > 0) { const tax = pre * .15; L.exp.tax += tax; S.money -= tax; total += tax; }
+  if (S.listed && pre > 0) { const dv = pre * .85 * .1; L.exp.div += dv; S.money -= dv; total += dv; }
   S.fin.hist.push({ day: S.day, rev: L.rev, exp: total, profit: L.rev - total, inv: L.inv, br: { ...L.exp } });
   if (S.fin.hist.length > 30) S.fin.hist.shift();
   S.day++; S.dayT -= DAY; S.fin.today = ledger();
@@ -1194,7 +1195,8 @@ const ACH = [
   { id: 'fam', n: 'Teil der Familie', d: 'Bei einer Bande den Status Familie erreichen', v: () => Math.max(...Object.values(S.gangs).map(g => g.rel)), g: 50, r: 250000 },
   { id: 'smug', n: 'Unterweltboss', d: '25 Schmuggelfahrten durchbringen', v: () => S.stats.smuggled || 0, g: 25, r: 100000 },
   { id: 'all5', n: 'Alleinherrscher', d: 'Alle fünf Konkurrenten übernehmen', v: () => S.stats.takeovers || 0, g: 5, r: 5e7 },
-  { id: 'ipo', n: 'Börsengang', d: 'Einen Neustart mit Aktien wagen', v: () => S.prestige.count, g: 1, r: 0 },
+  { id: 'ipo', n: 'Neugründer', d: 'Eine Neugründung mit Aktienpunkten wagen', v: () => S.prestige.count, g: 1, r: 0 },
+  { id: 'listed', n: 'Börsennotiert', d: 'Mit der Firma an die Börse gehen', v: () => S.listed ? 1 : 0, g: 1, r: 0 },
 ];
 function claimAch(id) { const a = ACH.find(x => x.id === id); if (!a || S.ach[id] || a.v() < a.g) return; S.ach[id] = 1; S.money += a.r; toast(`Erfolg freigeschaltet: ${a.n}${a.r ? ' · ' + money(a.r) : ''}`, 'g'); }
 function claimableCount() {
@@ -1205,14 +1207,25 @@ function claimableCount() {
 }
 
 /* ---------- prestige ---------- */
+function ipoCash() { return Math.round(valuation() * .25 / 1000) * 1000; }
+function canList() { return !S.listed && (stage() >= 4 || valuation() >= 1e7); }
+function goPublic() {
+  if (!canList()) return;
+  const c = ipoCash(); S.money += c; S.listed = { day: S.day, cash: c, base: valuation() };
+  addRep(10); sfx('level');
+  toast(`Glocke läutet! ${S.name} ist an der Börse. ${money(c)} von Aktionären eingesammelt.`, 'g', true);
+}
+function sharePrice() { return valuation() / 1e7; }
 function prestigeShares() { return Math.floor(10 * Math.sqrt(valuation() / 1e7)); }
 function canPrestige() { return stage() >= 5 || valuation() >= 5e7; }
 function doPrestige() {
   if (!canPrestige()) return;
   const add = prestigeShares();
+  backup('Vor der Neugründung');
+  const done = Object.assign({}, S.research.done);
   const keep = { name: S.name, ach: S.ach, auto: S.auto, speed: S.speed, prestige: { shares: S.prestige.shares + add, count: S.prestige.count + 1 } };
-  newGame(keep); U.modal = null; U.tab = 'hq'; save();
-  toast(`Börsengang erfolgreich! ${add} Aktienpunkte: dauerhaft +${add * 2} % auf Erlöse und Tempo.`, 'g');
+  newGame(keep); S.research.done = done; S.stats.researched = Object.keys(done).length; U.modal = null; U.tab = 'hq'; save();
+  toast(`Neugründung! ${add} Aktienpunkte (+${add * 2} % dauerhaft), ${money(S.money)} Startkapital, alle Forschung bleibt.`, 'g', true);
 }
 
 
@@ -1923,6 +1936,10 @@ function autoPanel() {
 }
 
 /* ---------- save / load ---------- */
+const BK = { pre: 'glt-backup-v1', auto: 'glt-backup-auto' };
+function backup(tag, key = BK.pre) { try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), tag, s: S })); } catch (e) {} }
+function readBackup(key) { try { const b = JSON.parse(localStorage.getItem(key) || 'null'); return b && b.s && b.s.warehouses ? b : null; } catch (e) { return null; } }
+function restoreBackup(key) { const b = readBackup(key); if (!b) return toast('Keine Sicherung gefunden.', 'r'); backup('Vor der Wiederherstellung', BK.auto); S = migrate(b.s); save(); U.modal = null; U.tab = 'hq'; toast(`Spielstand von ${new Date(b.t).toLocaleString('de-DE')} wiederhergestellt.`, 'g', true); }
 function save() { try { S.lastSave = Date.now(); localStorage.setItem(SAVE_KEY, JSON.stringify(S)); return true; } catch (e) { return false; } }
 function migrate(o) {
   const base = (newGame(), S);
@@ -1935,6 +1952,13 @@ function migrate(o) {
   m.prestige = Object.assign({ shares: 0, count: 0 }, o.prestige || {});
   m.auto = Object.assign({ accept: 1, dispatch: 1, care: 1, events: 1, research: 0, build: 0 }, o.auto || {});
   m.speed = o.speed || 1;
+  if ((o.v || 2) < 3 && m.prestige.count > 0 && !o.comp) {
+    m.comp = 1; const gift = 100000 + m.prestige.shares * 25000; m.money += gift;
+    for (const rr of RESEARCH) if (rr.st <= 3) m.research.done[rr.id] = 1;
+    m.stats.researched = Object.keys(m.research.done).length;
+    m.compGift = gift;
+  }
+  if ((o.v || 2) < 3) m.v = 3;
   if ((o.v || 1) < 2) { m.v = 2; m.speed = 1; m.auto.research = 0; m.auto.build = 0; m.stageMax = o.lastStage || 1; }
   if (![1, 2, 4, 8].includes(m.speed)) m.speed = 1;
   if (!o.rivals) m.rivals = initRivals();
@@ -2638,7 +2662,7 @@ function vFinance() {
     chart = `<svg viewBox="0 0 ${Wc} ${Hc}" role="img" aria-label="Umsatz, Kosten und Gewinn der letzten Tage">${s}</svg>`;
   }
   const br = last ? last.br : L.exp;
-  const names = { salary: 'Gehälter', maint: 'Wartung', fuel: 'Kraftstoff & Energie', rent: 'Lagermiete', power: 'Strom', ins: 'Versicherung', repair: 'Reparaturen', interest: 'Kreditzinsen', tax: 'Steuern (15 % auf Gewinn)', prod: 'Rohstoffe & Wareneinkauf', fines: 'Strafen & Bestechung', other: 'Sonstiges' };
+  const names = { salary: 'Gehälter', maint: 'Wartung', fuel: 'Kraftstoff & Energie', rent: 'Lagermiete', power: 'Strom', ins: 'Versicherung', repair: 'Reparaturen', interest: 'Kreditzinsen', tax: 'Steuern (15 % auf Gewinn)', prod: 'Rohstoffe & Wareneinkauf', fines: 'Strafen & Bestechung', div: 'Dividende an Aktionäre', other: 'Sonstiges' };
   const ml = maxLoan();
   return `<h1>Finanzen</h1>
   <div class="kpis">
@@ -2688,11 +2712,17 @@ function vCompany() {
       <tr><td>Internationale Aufträge</td><td>${num(S.stats.intl)}</td></tr><tr><td>Länder</td><td>${new Set(Object.keys(S.markets).map(c => CITY[c].c)).size}</td></tr>
       <tr><td>Rang weltweit</td><td>${myRank()}. Platz</td></tr><tr><td>Aktienpunkte (Prestige)</td><td>${S.prestige.shares} (+${S.prestige.shares * 2} %)</td></tr></table>
       ${btn('Firma umbenennen', 'rename', '', 's')}</section>
-    <section class="sec card"><h2>Börsengang</h2><p class="sub" style="margin:0">Bring dein Unternehmen an die Börse und starte neu: Du erhältst Aktienpunkte, die Erlöse, Sortier- und Forschungstempo dauerhaft um je 2 % steigern. Erfolge bleiben erhalten.</p>
+    <section class="sec card"><h2>Börsengang</h2>${S.listed ? `<p class="sub" style="margin:0">${esc(S.name)} ist seit Tag ${S.listed.day} an der Börse. 10 % des Gewinns gehen als Dividende an die Aktionäre.</p>
+      <table class="t"><tr><td>Aktienkurs</td><td>${money(sharePrice())}</td></tr><tr><td>Seit Börsengang</td><td class="${valuation() >= S.listed.base ? 'pos' : 'neg'}">${valuation() >= S.listed.base ? '+' : ''}${nf1.format((valuation() / Math.max(1, S.listed.base) - 1) * 100)} %</td></tr><tr><td>Eingesammelt</td><td>${money(S.listed.cash)}</td></tr></table>`
+      : `<p class="sub" style="margin:0">Bring deine Firma an die Börse: Du verkaufst 25 % an Aktionäre und bekommst sofort viel Geld. <b>Deine Firma läuft ganz normal weiter.</b> Danach gehen 10 % des Gewinns als Dividende an die Aktionäre.</p>
+      <table class="t"><tr><td>Voraussetzung</td><td>Stufe 4 oder 10 Mio. € Wert</td></tr><tr><td>Du bekommst jetzt</td><td>${money(ipoCash())}</td></tr></table>
+      ${btn('An die Börse gehen', 'golist', '', '', !canList())}`}</section>
+    <section class="sec card"><h2>Neugründung (Neustart)</h2><p class="sub" style="margin:0"><b style="color:var(--bad)">Löscht deine Firma komplett.</b> Du startest neu, behältst aber Forschung, Erfolge und Aktienpunkte. Jeder Aktienpunkt gibt dauerhaft +2 % und 25.000 € Startkapital. Vorher wird automatisch eine Sicherung angelegt.</p>
       <table class="t"><tr><td>Voraussetzung</td><td>Stufe 5 oder 50 Mio. € Wert</td></tr><tr><td>Aktienpunkte jetzt</td><td>${sh}</td></tr></table>
-      ${btn('Börsengang vorbereiten', 'ipo', '', '', !can || sh < 1)}</section>
+      ${btn('Neugründung vorbereiten', 'ipo', '', 'r', !can || sh < 1)}</section>
     <section class="sec card"><h2>Spielstand</h2><div class="sub">Wird automatisch alle 10 Sekunden auf diesem Gerät gespeichert. Mit dem Code kannst du ihn auf ein anderes Gerät mitnehmen.</div>
-      <div class="row" style="flex-wrap:wrap;gap:6px">${btn('Jetzt speichern', 'save', '', 's sm')}${btn('Code exportieren', 'export', '', 's sm')}${btn('Code laden', 'import', '', 's sm')}${btn('Neu beginnen', 'reset', '', 'r sm')}</div></section>
+      <div class="row" style="flex-wrap:wrap;gap:6px">${btn('Jetzt speichern', 'save', '', 's sm')}${btn('Code exportieren', 'export', '', 's sm')}${btn('Code laden', 'import', '', 's sm')}${btn('Neu beginnen', 'reset', '', 'r sm')}</div>
+      ${[[BK.pre, readBackup(BK.pre)], [BK.auto, readBackup(BK.auto)]].filter(x => x[1]).map(([k, b]) => `<div class="row sb" data-key="bk-${k}"><div><div class="ttl">${esc(b.tag)}</div><div class="sub">${new Date(b.t).toLocaleString('de-DE')} · Tag ${b.s.day} · ${money(b.s.money)}</div></div>${btn('Wiederherstellen', 'restore', k, 's sm')}</div>`).join('')}</section>
   </div>`;
 }
 function vMore() {
@@ -2705,6 +2735,7 @@ function renderModal() {
   const M = U.modal;
   if (S.chase && (!M || M.type !== 'chase')) { U.modal = { type: 'chase' }; return renderModal(); }
   if (M && M.type === 'chase' && !S.chase) { U.modal = null; return renderModal(); }
+  if (!M && U.pendStage) { U.modal = { type: 'stage', st: U.pendStage }; U.pendStage = 0; return renderModal(); }
   if (!M && S.ev.cur) { U.modal = { type: 'event' }; return renderModal(); }
   if (!M) { if (el.innerHTML) { el.innerHTML = ''; el.dataset.type = ''; } return; }
   let body = '';
@@ -2713,8 +2744,10 @@ function renderModal() {
     const E = EVENTS[S.ev.cur.id]; const p = S.ev.cur.p;
     body = `<div class="row"><div class="ico" ${E.crime ? 'style="background:#2a1748;color:#c084fc"' : ''}>${ic(E.crime ? 'mask' : 'bolt')}</div><div class="grow"><div class="sub">${E.crime ? 'Unterwelt' : 'Ereignis'}</div><div class="ttl" style="font-size:19px;white-space:normal">${E.title}</div></div></div><p>${esc(E.text(p))}</p><div class="choice">${E.choices(p).map((c, i) => `<button class="btn ${i ? 's' : ''}" data-act="evchoice" data-a="${i}">${esc(c.t)}<small>${esc(c.s)}</small></button>`).join('')}</div>`;
   } else if (M.type === 'event') { U.modal = null; return renderModal(); }
-  else if (M.type === 'win') {
-    body = `<div class="sub">Endkampf gewonnen</div><h1>Alleinherrscher</h1><p>Alle Konkurrenten gehören jetzt ${esc(S.name)}. Du kontrollierst die Logistik der Welt. Mit dem Börsengang kannst du mit dauerhaftem Bonus neu angreifen.</p>${btn('Zur Firma', 'win', '', 'w')}`;
+  else if (M.type === 'comp') {
+    body = `<div class="sub">Entschuldigung</div><h1>Neustart-Paket</h1><p>Der alte „Börsengang“ hat deine Firma ohne klare Warnung zurückgesetzt. Das war ein Fehler im Spiel. Als Ausgleich bekommst du <b>${money(M.gift)}</b> und alle Forschungen bis Stufe 3.</p><p>Neu: Der echte Börsengang lässt deine Firma weiterlaufen und bringt Geld. Neustarts heißen jetzt Neugründung, brauchen zwei Bestätigungen und legen vorher eine Sicherung an.</p>${btn('Los geht’s', 'close', '', 'w')}`;
+  } else if (M.type === 'win') {
+    body = `<div class="sub">Endkampf gewonnen</div><h1>Alleinherrscher</h1><p>Alle Konkurrenten gehören jetzt ${esc(S.name)}. Du kontrollierst die Logistik der Welt. Mit einer Neugründung kannst du mit dauerhaftem Bonus neu angreifen.</p>${btn('Zur Firma', 'win', '', 'w')}`;
   } else if (M.type === 'stage') {
     const s = STAGES[M.st];
     body = `<div class="sub">Neue Unternehmensstufe</div><h1>${M.st} · ${s.n}</h1><div class="steps">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= M.st ? 'on' : ''}"></i>`).join('')}</div><p>Freigeschaltet:</p><div class="chips">${s.unlock.map(u => `<span class="chip o">${esc(u)}</span>`).join('')}</div>${btn('Weiter', 'close', '', 'w')}`;
@@ -2830,10 +2863,15 @@ const ACT = {
   export() { U.modal = { type: 'export', code: exportSave() }; },
   copy() { const ta = document.getElementById('export-code'); const txt = ta ? ta.value : ''; try { navigator.clipboard.writeText(txt).then(() => toast('Code kopiert.', 'g'), () => { ta.select(); toast('Code markiert – jetzt kopieren.'); }); } catch (e) { if (ta) ta.select(); } },
   import() { U.modal = { type: 'import' }; },
-  importok() { importSave(document.getElementById('import-code').value || ''); },
+  importok() { backup('Vor dem Laden eines Codes'); importSave(document.getElementById('import-code').value || ''); },
   reset() { U.modal = { type: 'confirm', title: 'Wirklich neu beginnen?', text: 'Dein gesamter Fortschritt auf diesem Gerät wird gelöscht. Das lässt sich nicht rückgängig machen.', ok: 'Alles löschen und neu starten', act: 'resetok', danger: 1 }; },
-  resetok() { newGame(); U.modal = null; U.tab = 'hq'; save(); toast('Neues Spiel gestartet.'); },
-  ipo() { U.modal = { type: 'confirm', title: 'Börsengang durchführen?', text: `Du startest mit einer neuen Firma und erhältst ${prestigeShares()} Aktienpunkte (+${prestigeShares() * 2} % dauerhaft). Geld, Fahrzeuge, Lager und Forschung werden zurückgesetzt.`, ok: 'An die Börse gehen', act: 'ipook' }; },
+  resetok() { backup('Vor dem Neustart'); newGame(); U.modal = null; U.tab = 'hq'; save(); toast('Neues Spiel gestartet. Der alte Stand liegt als Sicherung unter Firma.'); },
+  restore(a) { U.modal = { type: 'confirm', title: 'Sicherung wiederherstellen?', text: 'Dein aktueller Spielstand wird ersetzt (er wird vorher selbst gesichert).', ok: 'Wiederherstellen', act: 'restoreok', id: a }; },
+  restoreok() { const k = U.modal && U.modal.id; restoreBackup(k); },
+  golist() { U.modal = { type: 'confirm', title: 'An die Börse gehen?', text: `Deine Firma läuft ganz normal weiter. Du verkaufst 25 % an Aktionäre und bekommst sofort ${money(ipoCash())}. Dafür gehen ab jetzt 10 % deines Gewinns als Dividende an die Aktionäre.`, ok: 'Börsengang durchführen', act: 'golistok' }; },
+  golistok() { U.modal = null; goPublic(); },
+  ipostep() { U.modal = { type: 'confirm', title: 'Letzte Warnung: alles weg?', text: 'Firma, Geld, Fahrzeuge, Lager, Städte und Fabriken werden gelöscht. Du startest bei null – nur Forschung, Erfolge und Aktienpunkte bleiben. Vorher wird automatisch eine Sicherung angelegt.', ok: 'Ja, neu gründen', act: 'ipook', danger: 1 }; },
+  ipo() { U.modal = { type: 'confirm', title: 'Neugründung starten?', text: `ACHTUNG: Das ist ein kompletter Neustart, kein Börsengang! Du gibst deine Firma auf und gründest neu. Du bekommst ${prestigeShares()} Aktienpunkte (+${prestigeShares() * 2} % dauerhaft) und ${money(5000 + (S.prestige.shares + prestigeShares()) * 25000)} Startkapital.`, ok: 'Weiter', act: 'ipostep', danger: 1 }; },
   ipook() { doPrestige(); },
 };
 document.addEventListener('click', e => {
@@ -2871,12 +2909,14 @@ function frame(now) {
 }
 setInterval(render, 220);
 setInterval(save, 10000);
+setInterval(() => backup('Automatische Sicherung', BK.auto), 5 * 60000);
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
 window.addEventListener('pagehide', save);
 
 /* ---------- boot ---------- */
 const loaded = load();
 if (loaded) offlineProgress();
+if (S.compGift) { U.modal = { type: 'comp', gift: S.compGift }; delete S.compGift; save(); }
 ensureMissions();
 if (!S.contracts.offers.length) genOffers();
 render();
